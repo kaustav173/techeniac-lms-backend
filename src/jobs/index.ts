@@ -8,5 +8,6 @@ export {
   initEmailQueue,
 } from './email.queue';
 export type { EmailJobData } from './email.types';
+export { createEmailWorker, processEmailJob } from './email.worker';
 export { closeScheduledJobs, registerScheduledJobs } from './register-jobs';
 export { createTokenCleanupWorker, TOKEN_CLEANUP_QUEUE_NAME } from './token-cleanup.worker';
