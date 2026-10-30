@@ -1,6 +1,7 @@
 import sgMail from '@sendgrid/mail';
 import nodemailer, { Transporter } from 'nodemailer';
 
+import type { EmailJobData } from '../../jobs/email.types';
 import { env } from '../config';
 import { logger } from '../logging';
 import {
@@ -283,6 +284,44 @@ export class EmailService {
       metadata,
       `Email service not configured in environment. ${contextName} email skipped in development.`,
     );
+  }
+
+  public async dispatchDirectly(job: EmailJobData): Promise<void> {
+    switch (job.type) {
+      case 'PASSWORD_RESET':
+        await this.sendPasswordResetEmail(job.payload);
+        break;
+      case 'INVITE':
+        await this.sendInviteEmail(job.payload);
+        break;
+      case 'COURSE_ALLOCATED':
+        await this.sendCourseAllocatedEmail(job.payload);
+        break;
+      case 'COURSE_DEADLINE_CHANGED':
+        await this.sendCourseDeadlineChangedEmail(job.payload);
+        break;
+      case 'MENTOR_MAPPED':
+        await this.sendMentorMappedEmail(job.payload);
+        break;
+      case 'MENTEE_REASSIGNED':
+        await this.sendMenteeReassignedEmail(job.payload);
+        break;
+      case 'SUBMISSION_RECEIVED':
+        await this.sendSubmissionReceivedEmail(job.payload);
+        break;
+      case 'ASSIGNMENT_GRADED':
+        await this.sendAssignmentGradedEmail(job.payload);
+        break;
+      case 'RESUBMISSION_REQUESTED':
+        await this.sendResubmissionRequestedEmail(job.payload);
+        break;
+      case 'ALLOCATION_COMPLETED':
+        await this.sendAllocationCompletedEmail(job.payload);
+        break;
+      case 'TOPIC_DEADLINE_CHANGED':
+        await this.sendTopicDeadlineChangedEmail(job.payload);
+        break;
+    }
   }
 
   public async sendPasswordResetEmail(options: SendPasswordResetOptions): Promise<void> {

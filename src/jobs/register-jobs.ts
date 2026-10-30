@@ -2,6 +2,8 @@ import { Queue } from 'bullmq';
 
 import { logger } from '../core/logging';
 import { registerBullBoardQueue } from './bull-board';
+import { closeEmailQueue, initEmailQueue } from './email.queue';
+import { createEmailWorker } from './email.worker';
 import { redisConnection } from './redis-connection';
 import { createTokenCleanupWorker, TOKEN_CLEANUP_QUEUE_NAME } from './token-cleanup.worker';
 
@@ -10,9 +12,15 @@ export const TOKEN_CLEANUP_JOB_NAME = 'cleanup-expired-tokens';
 
 let tokenCleanupQueue: Queue | null = null;
 let tokenCleanupWorker: ReturnType<typeof createTokenCleanupWorker> | null = null;
+let emailWorker: ReturnType<typeof createEmailWorker> | null = null;
 
 export async function registerScheduledJobs(): Promise<void> {
   try {
+    const emailQueue = initEmailQueue();
+    registerBullBoardQueue(emailQueue);
+    emailWorker = createEmailWorker();
+    logger.info('Initialized BullMQ email worker and registered queue in Bull Board');
+
     tokenCleanupQueue = new Queue(TOKEN_CLEANUP_QUEUE_NAME, {
       connection: redisConnection,
     });
@@ -45,6 +53,15 @@ export async function registerScheduledJobs(): Promise<void> {
 }
 
 export async function closeScheduledJobs(): Promise<void> {
+  if (emailWorker) {
+    logger.info('Closing BullMQ email worker...');
+    await emailWorker.close();
+    emailWorker = null;
+  }
+
+  logger.info('Closing BullMQ email queue...');
+  await closeEmailQueue();
+
   if (tokenCleanupWorker) {
     logger.info('Closing BullMQ token cleanup worker...');
     await tokenCleanupWorker.close();
