@@ -6,9 +6,12 @@ import { StatusCodes } from 'http-status-codes';
 import { env } from './core/config';
 import { healthRouter } from './core/health';
 import { corsMiddleware, errorMiddleware, notFoundMiddleware } from './core/http';
+import { BULL_BOARD_BASE_PATH, mountBullBoard } from './jobs';
 import { allocationsRouter, registerAllocationLifecycleListeners } from './modules/allocations';
 import { auditRouter } from './modules/audit';
 import { authRouter } from './modules/auth';
+// eslint-disable-next-line architecture/cross-module-index-imports -- middleware isolated from barrel to eliminate circular dependency
+import { requireAuth, requireRole } from './modules/auth/auth.middleware';
 import { batchRouter, menteeRouter, mentorRouter } from './modules/batches';
 import { coursesRouter } from './modules/courses';
 import { dashboardRouter } from './modules/dashboard';
@@ -20,6 +23,7 @@ import {
 } from './modules/progress';
 import { submissionsRouter } from './modules/submissions';
 import { user360Router } from './modules/user-360';
+import { UserRole } from './modules/users';
 // eslint-disable-next-line architecture/cross-module-index-imports -- router mount isolated from barrel to eliminate circular dependency
 import { usersRouter } from './modules/users/users.routes';
 
@@ -38,6 +42,9 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true }));
 
   app.use('/health', healthRouter);
+
+  app.use(BULL_BOARD_BASE_PATH, requireAuth, requireRole(UserRole.SUPER_ADMIN));
+  mountBullBoard(app);
 
   app.get('/api/v1', (_req, res) => {
     res.status(StatusCodes.OK).json({

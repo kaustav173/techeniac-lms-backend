@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq';
 
 import { logger } from '../core/logging';
+import { registerBullBoardQueue } from './bull-board';
 import { redisConnection } from './redis-connection';
 import { createTokenCleanupWorker, TOKEN_CLEANUP_QUEUE_NAME } from './token-cleanup.worker';
 
@@ -15,6 +16,7 @@ export async function registerScheduledJobs(): Promise<void> {
     tokenCleanupQueue = new Queue(TOKEN_CLEANUP_QUEUE_NAME, {
       connection: redisConnection,
     });
+    registerBullBoardQueue(tokenCleanupQueue);
 
     // BullMQ v6 upsertJobScheduler: idempotent registration preventing duplicate schedules
     await tokenCleanupQueue.upsertJobScheduler(
