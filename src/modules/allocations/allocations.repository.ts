@@ -385,6 +385,31 @@ export class AllocationsRepository {
     });
   }
 
+  public async findOverdueAllocations(now: Date = new Date()): Promise<CourseAllocation[]> {
+    return await this.allocationRepo
+      .createQueryBuilder('ca')
+      .where('ca.status IN (:...statuses)', {
+        statuses: [CourseAllocationStatus.ASSIGNED, CourseAllocationStatus.IN_PROGRESS],
+      })
+      .andWhere('ca.dueDate < :now', { now })
+      .andWhere('ca.deletedAt IS NULL')
+      .getMany();
+  }
+
+  public async findUpcomingDeadlines(
+    now: Date = new Date(),
+    windowEnd: Date = new Date(now.getTime() + 48 * 3600000),
+  ): Promise<CourseAllocation[]> {
+    return await this.allocationRepo
+      .createQueryBuilder('ca')
+      .where('ca.status IN (:...statuses)', {
+        statuses: [CourseAllocationStatus.ASSIGNED, CourseAllocationStatus.IN_PROGRESS],
+      })
+      .andWhere('ca.dueDate >= :now AND ca.dueDate <= :windowEnd', { now, windowEnd })
+      .andWhere('ca.deletedAt IS NULL')
+      .getMany();
+  }
+
   private attachComputedFields(allocation: CourseAllocation): void {
     const now = new Date();
     const isTerminal = [

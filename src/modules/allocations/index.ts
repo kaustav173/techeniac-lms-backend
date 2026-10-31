@@ -1,7 +1,7 @@
 export { allocationsController } from './allocations.controller';
 export { registerAllocationLifecycleListeners } from './allocations.module';
 export { allocationsPolicy } from './allocations.policy';
-export { allocationsRepository } from './allocations.repository';
+export { AllocationsRepository, allocationsRepository } from './allocations.repository';
 export { allocationsRouter } from './allocations.routes';
 export { allocationsService } from './allocations.service';
 export * from './entities';

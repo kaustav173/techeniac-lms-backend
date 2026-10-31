@@ -9,5 +9,13 @@ export {
 } from './email.queue';
 export type { EmailJobData } from './email.types';
 export { createEmailWorker, processEmailJob } from './email.worker';
+export {
+  createOverdueWorker,
+  DEADLINE_REMINDER_JOB_NAME,
+  OVERDUE_DETECTION_JOB_NAME,
+  OVERDUE_JOBS_QUEUE_NAME,
+  processDeadlineReminders,
+  processOverdueDetection,
+} from './overdue.worker';
 export { closeScheduledJobs, registerScheduledJobs } from './register-jobs';
 export { createTokenCleanupWorker, TOKEN_CLEANUP_QUEUE_NAME } from './token-cleanup.worker';
