@@ -26,6 +26,11 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
       const parsed = userQuerySchema.parse({});
       assert.strictEqual(parsed.withoutActiveBatch, undefined);
     });
+
+    void it('rejects non-boolean strings with validation error', () => {
+      const result = userQuerySchema.safeParse({ withoutActiveBatch: 'invalid' });
+      assert.strictEqual(result.success, false);
+    });
   });
 
   void describe('UserRepository.findAll Query Construction', () => {

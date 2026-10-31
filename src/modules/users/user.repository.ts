@@ -1,6 +1,8 @@
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { AppDataSource } from '../../core/db';
+// eslint-disable-next-line architecture/cross-module-index-imports -- import enum directly to prevent circular barrel initialization between users and batches
+import { BatchStatus } from '../batches/entities/batch.enums';
 import { User, UserRole } from './entities/user.entity';
 import { UserRoleHistory } from './entities/user-role-history.entity';
 import type { UserQueryParams } from './users.schemas';
@@ -205,7 +207,7 @@ export class UserRepository {
         WHERE bm.user_id = "user"."id"
           AND bm.is_active = true
           AND bm.deleted_at IS NULL
-          AND b.status IN ('DRAFT', 'LIVE', 'ON_HOLD')
+          AND b.status IN ('${BatchStatus.DRAFT}', '${BatchStatus.LIVE}', '${BatchStatus.ON_HOLD}')
           AND b.deleted_at IS NULL
       `;
       if (params.withoutActiveBatch) {
