@@ -69,6 +69,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
 
   beforeEach(async () => {
     validPasswordHash = await hashPassword(validPassword);
+    activeMockUser.name = 'Test Active User';
     activeMockUser.passwordHash = validPasswordHash;
     inactiveMockUser.passwordHash = validPasswordHash;
 
@@ -341,6 +342,15 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
         isActive: true,
         createdAt: mockCreatedAt,
       });
+      assert.strictEqual(activeMockUser.updatedBy, activeMockUser.id);
+    });
+
+    void it('trims leading and trailing whitespace from name', async () => {
+      const updated = await authService.updateProfile(activeMockUser.id, {
+        name: '  Trimmed User Name  ',
+      });
+
+      assert.strictEqual(updated.name, 'Trimmed User Name');
     });
 
     void it('throws NotFoundError when user does not exist', async () => {

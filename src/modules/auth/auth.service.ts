@@ -468,7 +468,8 @@ export class AuthService implements IAuthService {
       throw new NotFoundError('User not found');
     }
 
-    user.name = input.name;
+    user.name = input.name.trim();
+    user.updatedBy = userId;
     const updatedUser = await this.userRepo.save(user);
     return this.toAuthUserPayload(updatedUser);
   }
