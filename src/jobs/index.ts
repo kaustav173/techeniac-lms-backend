@@ -17,5 +17,12 @@ export {
   processDeadlineReminders,
   processOverdueDetection,
 } from './overdue.worker';
-export { closeScheduledJobs, registerScheduledJobs } from './register-jobs';
+export {
+  closeScheduledJobs,
+  DEADLINE_REMINDER_SCHEDULER_ID,
+  OVERDUE_DETECTION_SCHEDULER_ID,
+  registerScheduledJobs,
+  TOKEN_CLEANUP_JOB_NAME,
+  TOKEN_CLEANUP_SCHEDULER_ID,
+} from './register-jobs';
 export { createTokenCleanupWorker, TOKEN_CLEANUP_QUEUE_NAME } from './token-cleanup.worker';

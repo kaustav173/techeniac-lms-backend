@@ -104,7 +104,7 @@ git commit -m "feat(jobs): add overdue detection and deadline reminder worker"
   - Schedulers registered in `overdue-jobs` queue via `upsertJobScheduler`.
   - `overdue-jobs` visible in Bull Board `/admin/queues`.
 
-- [ ] **Step 1: Write integration tests in `tests/integration/overdue-jobs.api.test.ts`**
+- [x] **Step 1: Write integration tests in `tests/integration/overdue-jobs.api.test.ts`**
 
 Write integration tests verifying:
 
@@ -112,7 +112,7 @@ Write integration tests verifying:
 - `overdue-jobs` is accessible in Bull Board router.
 - `closeScheduledJobs()` closes the overdue worker and queue cleanly.
 
-- [ ] **Step 2: Update `src/jobs/register-jobs.ts`**
+- [x] **Step 2: Update `src/jobs/register-jobs.ts`**
 
 - In `registerScheduledJobs()`:
   - Instantiate `overdueQueue = new Queue(OVERDUE_JOBS_QUEUE_NAME, { connection: redisConnection })`.
@@ -122,7 +122,7 @@ Write integration tests verifying:
 - In `closeScheduledJobs()`:
   - Await `overdueWorker.close()` and `overdueQueue.close()`.
 
-- [ ] **Step 3: Run integration test and existing job test suite**
+- [x] **Step 3: Run integration test and existing job test suite**
 
 Run:
 
@@ -133,7 +133,7 @@ npx tsx --test tests/integration/email-queue.api.test.ts tests/unit/bull-board.u
 
 Expected: All tests pass.
 
-- [ ] **Step 4: Full verification gate**
+- [x] **Step 4: Full verification gate**
 
 Run:
 
