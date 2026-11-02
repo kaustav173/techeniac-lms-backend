@@ -36,6 +36,15 @@ export const userQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   batchId: z.string().uuid('Invalid batch ID').optional(),
   mentorId: z.string().uuid('Invalid mentor ID').optional(),
+  withoutActiveBatch: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'true') return true;
+        if (val.toLowerCase() === 'false') return false;
+      }
+      return val;
+    }, z.boolean())
+    .optional(),
 });
 
 export const listUsersSchema = z.object({
