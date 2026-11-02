@@ -11,6 +11,7 @@ import type {
   ForgotPasswordInput,
   LoginInput,
   ResetPasswordInput,
+  UpdateProfileInput,
   VerifyResetTokenInput,
 } from './schemas/auth.schemas';
 
@@ -121,6 +122,21 @@ export class AuthController extends BaseController {
       success: true,
       message: 'Password changed successfully',
       data: result,
+    });
+  };
+
+  public updateProfile = async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new UnauthorizedError('Authentication required');
+    }
+
+    const user = await this.service.updateProfile(userId, req.body as UpdateProfileInput);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: { user },
     });
   };
 }

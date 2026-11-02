@@ -66,8 +66,21 @@ export const verifyResetTokenSchema = z.object({
   }),
 });
 
+export const updateProfileSchema = z.object({
+  body: z
+    .object({
+      name: z
+        .string({ required_error: 'Name is required' })
+        .trim()
+        .min(2, 'Name must be at least 2 characters long')
+        .max(100, 'Name must not exceed 100 characters'),
+    })
+    .strict(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>['body'];
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>['body'];
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>['body'];
 export type VerifyResetTokenInput = z.infer<typeof verifyResetTokenSchema>['body'];
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>['body'];
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>['body'];

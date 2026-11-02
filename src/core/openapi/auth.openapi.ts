@@ -163,6 +163,63 @@ export const authOpenApiSpec = {
         },
       },
     },
+    '/auth/profile': {
+      patch: {
+        summary: 'Update authenticated user profile name',
+        security: [{ bearerAuth: [] }, { cookieAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string', minLength: 2, maxLength: 100 },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Profile updated successfully returning updated user payload',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'Profile updated successfully' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        user: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            email: { type: 'string', format: 'email' },
+                            role: { type: 'string', enum: ['SUPER_ADMIN', 'MENTOR', 'MENTEE'] },
+                            mustChangePassword: { type: 'boolean' },
+                            isActive: { type: 'boolean' },
+                            createdAt: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '400': { description: 'Validation error' },
+          '401': { description: 'Unauthorized' },
+          '404': { description: 'User not found' },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {

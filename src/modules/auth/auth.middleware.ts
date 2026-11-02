@@ -2,7 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 
 import { type AuthenticatedUser, verifyAccessToken } from '../../core/auth';
 import { ForbiddenError, UnauthorizedError } from '../../core/errors';
-import { userRepository } from '../users';
+// eslint-disable-next-line architecture/cross-module-index-imports -- isolate repository import to break barrel cycle with users.service
+import { userRepository } from '../users/user.repository';
 
 // Augment Express.Request interface to type user context attached by auth middleware
 /* eslint-disable @typescript-eslint/no-namespace */

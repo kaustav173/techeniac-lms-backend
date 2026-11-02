@@ -1,5 +1,6 @@
-export { AuthController, authController } from './auth.controller';
+// eslint-disable-next-line simple-import-sort/exports -- requireAuth must be exported before authController to prevent circular dependency deadlock with route files
 export { requireAuth, requireRole } from './auth.middleware';
+export { AuthController, authController } from './auth.controller';
 export { authRouter } from './auth.routes';
 export type {
   AuthResult,
