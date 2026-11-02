@@ -138,4 +138,54 @@ void describe('Bull Board API Integration Tests (/admin/queues)', () => {
     const contentType = res.headers.get('content-type') ?? '';
     assert.ok(contentType.includes('text/html'), `Expected HTML content-type, got: ${contentType}`);
   });
+
+  void it('returns 401 Unauthorized when accessing nested GET /admin/queues/api/queues without credentials', async () => {
+    const res = await fetch(`${baseUrl}/admin/queues/api/queues`);
+    assert.equal(res.status, 401);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    assert.equal(body.error.code, 'UNAUTHENTICATED');
+  });
+
+  void it('returns 403 Forbidden when accessing nested GET /admin/queues/api/queues with MENTEE token', async () => {
+    const res = await fetch(`${baseUrl}/admin/queues/api/queues`, {
+      headers: { Authorization: `Bearer ${tokenMentee}` },
+    });
+    assert.equal(res.status, 403);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    assert.equal(body.error.code, 'FORBIDDEN');
+  });
+
+  void it('returns 200 OK when accessing nested GET /admin/queues/api/queues with SUPER_ADMIN token', async () => {
+    const res = await fetch(`${baseUrl}/admin/queues/api/queues`, {
+      headers: { Authorization: `Bearer ${tokenAdmin}` },
+    });
+    assert.equal(res.status, 200);
+  });
+
+  void it('returns 401 Unauthorized when sending PUT to /admin/queues/api/queues/pause without credentials', async () => {
+    const res = await fetch(`${baseUrl}/admin/queues/api/queues/pause`, {
+      method: 'PUT',
+    });
+    assert.equal(res.status, 401);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    assert.equal(body.error.code, 'UNAUTHENTICATED');
+  });
+
+  void it('returns 403 Forbidden when sending PUT to /admin/queues/api/queues/pause with MENTOR token', async () => {
+    const res = await fetch(`${baseUrl}/admin/queues/api/queues/pause`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${tokenMentor}` },
+    });
+    assert.equal(res.status, 403);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    assert.equal(body.error.code, 'FORBIDDEN');
+  });
+
+  void it('returns 200 OK when sending PUT to /admin/queues/api/queues/pause with SUPER_ADMIN token', async () => {
+    const res = await fetch(`${baseUrl}/admin/queues/api/queues/pause`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${tokenAdmin}` },
+    });
+    assert.equal(res.status, 200);
+  });
 });

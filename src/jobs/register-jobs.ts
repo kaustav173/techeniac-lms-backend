@@ -16,7 +16,6 @@ export async function registerScheduledJobs(): Promise<void> {
     tokenCleanupQueue = new Queue(TOKEN_CLEANUP_QUEUE_NAME, {
       connection: redisConnection,
     });
-    registerBullBoardQueue(tokenCleanupQueue);
 
     // BullMQ v6 upsertJobScheduler: idempotent registration preventing duplicate schedules
     await tokenCleanupQueue.upsertJobScheduler(
@@ -32,6 +31,8 @@ export async function registerScheduledJobs(): Promise<void> {
         },
       },
     );
+
+    registerBullBoardQueue(tokenCleanupQueue);
 
     logger.info('Registered hourly token cleanup scheduled job with BullMQ');
 

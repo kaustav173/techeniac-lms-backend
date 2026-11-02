@@ -6,7 +6,7 @@ import { StatusCodes } from 'http-status-codes';
 import { env } from './core/config';
 import { healthRouter } from './core/health';
 import { corsMiddleware, errorMiddleware, notFoundMiddleware } from './core/http';
-import { BULL_BOARD_BASE_PATH, mountBullBoard } from './jobs';
+import { mountBullBoard } from './jobs';
 import { allocationsRouter, registerAllocationLifecycleListeners } from './modules/allocations';
 import { auditRouter } from './modules/audit';
 import { authRouter } from './modules/auth';
@@ -43,8 +43,7 @@ export function createApp(): Express {
 
   app.use('/health', healthRouter);
 
-  app.use(BULL_BOARD_BASE_PATH, requireAuth, requireRole(UserRole.SUPER_ADMIN));
-  mountBullBoard(app);
+  mountBullBoard(app, requireAuth, requireRole(UserRole.SUPER_ADMIN));
 
   app.get('/api/v1', (_req, res) => {
     res.status(StatusCodes.OK).json({

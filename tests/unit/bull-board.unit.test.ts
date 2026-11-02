@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { Queue } from 'bullmq';
-import express from 'express';
+import express, { type RequestHandler } from 'express';
 
 import {
   BULL_BOARD_BASE_PATH,
@@ -19,6 +19,14 @@ void describe('Bull Board Adapter Unit Tests', () => {
     const app = express();
     assert.doesNotThrow(() => {
       mountBullBoard(app);
+    });
+  });
+
+  void it('mounts router on express app with guards without throwing', () => {
+    const app = express();
+    const dummyGuard: RequestHandler = (_req, _res, next) => next();
+    assert.doesNotThrow(() => {
+      mountBullBoard(app, dummyGuard);
     });
   });
 

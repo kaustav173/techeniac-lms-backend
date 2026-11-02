@@ -18,6 +18,6 @@ export function registerBullBoardQueue(queue: Queue): void {
   board.addQueue(new BullMQAdapter(queue));
 }
 
-export function mountBullBoard(app: Express): void {
-  app.use(BULL_BOARD_BASE_PATH, serverAdapter.getRouter() as RequestHandler);
+export function mountBullBoard(app: Express, ...guards: RequestHandler[]): void {
+  app.use(BULL_BOARD_BASE_PATH, ...guards, serverAdapter.getRouter() as RequestHandler);
 }

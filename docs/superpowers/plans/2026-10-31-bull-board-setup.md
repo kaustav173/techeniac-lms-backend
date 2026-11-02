@@ -8,7 +8,7 @@
 
 **Tech Stack:** Node.js 24, Express 5, TypeScript, BullMQ v6, `@bull-board/api` (^9.10.5), `@bull-board/express` (^9.10.5).
 
-**Spec:** [`docs/superpowers/specs/2026-10-31-bull-board-setup-design.md`](file:///home/kaustav-das/Documents/LMS/techeniac-lms-backend/docs/superpowers/specs/2026-10-31-bull-board-setup-design.md)
+**Spec:** [`docs/superpowers/specs/2026-10-31-bull-board-setup-design.md`](../specs/2026-10-31-bull-board-setup-design.md)
 
 ---
 
