@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-import { logAudit } from '../../core/audit';
+import { AuditType, logAudit } from '../../core/audit';
 import { hashPassword } from '../../core/auth/password';
 import { isUniqueViolation } from '../../core/db';
 import { emailService } from '../../core/email';
@@ -13,7 +13,6 @@ import {
 } from '../../core/errors';
 import { eventBus } from '../../core/lifecycle';
 import { logger } from '../../core/logging';
-import { AuditType } from '../audit';
 import { batchService } from '../batches';
 import { type User, UserRole } from './entities/user.entity';
 import type { UserRoleHistory } from './entities/user-role-history.entity';

@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq';
 
 import { logger } from '../core/logging';
+import { registerBullBoardQueue } from './bull-board';
 import { redisConnection } from './redis-connection';
 import { createTokenCleanupWorker, TOKEN_CLEANUP_QUEUE_NAME } from './token-cleanup.worker';
 
@@ -30,6 +31,8 @@ export async function registerScheduledJobs(): Promise<void> {
         },
       },
     );
+
+    registerBullBoardQueue(tokenCleanupQueue);
 
     logger.info('Registered hourly token cleanup scheduled job with BullMQ');
 
