@@ -14,8 +14,7 @@ export {
   DEADLINE_REMINDER_JOB_NAME,
   OVERDUE_DETECTION_JOB_NAME,
   OVERDUE_JOBS_QUEUE_NAME,
-  processDeadlineReminders,
-  processOverdueDetection,
+  processOverdueJob,
 } from './overdue.worker';
 export {
   closeScheduledJobs,

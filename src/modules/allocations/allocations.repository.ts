@@ -16,6 +16,10 @@ export interface AllocationListResult {
   limit: number;
 }
 
+export const SCHEDULED_JOBS_BATCH_LIMIT = 1000;
+export const UPCOMING_DEADLINE_WINDOW_START_HOURS = 24;
+export const UPCOMING_DEADLINE_WINDOW_END_HOURS = 48;
+
 export class AllocationsRepository {
   private get allocationRepo() {
     return AppDataSource.getRepository(CourseAllocation);
@@ -385,28 +389,38 @@ export class AllocationsRepository {
     });
   }
 
-  public async findOverdueAllocations(now: Date = new Date()): Promise<CourseAllocation[]> {
-    return await this.allocationRepo
-      .createQueryBuilder('ca')
-      .where('ca.status IN (:...statuses)', {
-        statuses: [CourseAllocationStatus.ASSIGNED, CourseAllocationStatus.IN_PROGRESS],
-      })
-      .andWhere('ca.dueDate < :now', { now })
-      .andWhere('ca.deletedAt IS NULL')
-      .getMany();
-  }
-
-  public async findUpcomingDeadlines(
+  public async findOverdueAllocations(
+    since: Date = new Date(Date.now() - 24 * 3600000),
     now: Date = new Date(),
-    windowEnd: Date = new Date(now.getTime() + 48 * 3600000),
+    limit: number = SCHEDULED_JOBS_BATCH_LIMIT,
   ): Promise<CourseAllocation[]> {
     return await this.allocationRepo
       .createQueryBuilder('ca')
       .where('ca.status IN (:...statuses)', {
         statuses: [CourseAllocationStatus.ASSIGNED, CourseAllocationStatus.IN_PROGRESS],
       })
-      .andWhere('ca.dueDate >= :now AND ca.dueDate <= :windowEnd', { now, windowEnd })
+      .andWhere('ca.dueDate >= :since AND ca.dueDate < :now', { since, now })
       .andWhere('ca.deletedAt IS NULL')
+      .take(limit)
+      .getMany();
+  }
+
+  public async findUpcomingDeadlines(
+    windowStart: Date = new Date(Date.now() + UPCOMING_DEADLINE_WINDOW_START_HOURS * 3600000),
+    windowEnd: Date = new Date(Date.now() + UPCOMING_DEADLINE_WINDOW_END_HOURS * 3600000),
+    limit: number = SCHEDULED_JOBS_BATCH_LIMIT,
+  ): Promise<CourseAllocation[]> {
+    return await this.allocationRepo
+      .createQueryBuilder('ca')
+      .where('ca.status IN (:...statuses)', {
+        statuses: [CourseAllocationStatus.ASSIGNED, CourseAllocationStatus.IN_PROGRESS],
+      })
+      .andWhere('ca.dueDate >= :windowStart AND ca.dueDate <= :windowEnd', {
+        windowStart,
+        windowEnd,
+      })
+      .andWhere('ca.deletedAt IS NULL')
+      .take(limit)
       .getMany();
   }
 

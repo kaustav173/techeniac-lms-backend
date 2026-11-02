@@ -1,93 +1,43 @@
 import { type Job, Worker } from 'bullmq';
 
-import { eventBus } from '../core/lifecycle';
 import { logger } from '../core/logging';
-import { allocationsRepository } from '../modules/allocations';
-import { progressRepository } from '../modules/progress';
+import { allocationsService } from '../modules/allocations';
+import { progressService } from '../modules/progress';
 import { redisConnection } from './redis-connection';
 
 export const OVERDUE_JOBS_QUEUE_NAME = 'overdue-jobs';
 export const OVERDUE_DETECTION_JOB_NAME = 'detect-overdue';
 export const DEADLINE_REMINDER_JOB_NAME = 'remind-deadlines';
 
-export async function processOverdueDetection(
-  allocRepo = allocationsRepository,
-  topicRepo = progressRepository,
-): Promise<{ overdueAllocationsCount: number; overdueTopicsCount: number }> {
-  const overdueAllocations = await allocRepo.findOverdueAllocations();
+export async function processOverdueJob(job: Job): Promise<Record<string, unknown>> {
+  logger.info({ jobId: job.id, jobName: job.name }, 'Processing scheduled overdue job');
 
-  for (const ca of overdueAllocations) {
-    eventBus.emitEvent('allocation.overdueDetected', {
-      allocationId: ca.id,
-      userId: ca.userId,
-      courseId: ca.courseId,
-      dueDate: ca.dueDate,
-    });
+  if (job.name === OVERDUE_DETECTION_JOB_NAME) {
+    const allocResult = await allocationsService.detectOverdueAllocations();
+    const topicResult = await progressService.detectOverdueTopics();
+    const result = {
+      ...allocResult,
+      ...topicResult,
+    };
+    logger.info({ jobId: job.id, ...result }, 'Overdue detection job completed');
+    return result;
   }
 
-  const overdueTopics = await topicRepo.findOverdueTopics();
-
-  for (const tp of overdueTopics) {
-    if (tp.deadline) {
-      eventBus.emitEvent('topic.overdueDetected', {
-        topicProgressId: tp.id,
-        courseAllocationId: tp.courseAllocationId,
-        topicId: tp.topicId,
-        deadline: tp.deadline,
-      });
-    }
+  if (job.name === DEADLINE_REMINDER_JOB_NAME) {
+    const result = await allocationsService.processDeadlineReminders();
+    logger.info({ jobId: job.id, ...result }, 'Deadline reminder job completed');
+    return result;
   }
 
-  return {
-    overdueAllocationsCount: overdueAllocations.length,
-    overdueTopicsCount: overdueTopics.length,
-  };
-}
-
-export async function processDeadlineReminders(
-  allocRepo = allocationsRepository,
-): Promise<{ reminderAllocationsCount: number }> {
-  const now = new Date();
-  const windowEnd = new Date(now.getTime() + 48 * 3600000);
-  const upcomingAllocations = await allocRepo.findUpcomingDeadlines(now, windowEnd);
-
-  for (const ca of upcomingAllocations) {
-    const hoursRemaining = Math.max(
-      0,
-      Math.round((new Date(ca.dueDate).getTime() - now.getTime()) / 3600000),
-    );
-
-    eventBus.emitEvent('allocation.reminderDue', {
-      allocationId: ca.id,
-      userId: ca.userId,
-      courseId: ca.courseId,
-      dueDate: ca.dueDate,
-      hoursRemaining,
-    });
-  }
-
-  return {
-    reminderAllocationsCount: upcomingAllocations.length,
-  };
+  logger.warn({ jobId: job.id, jobName: job.name }, 'Unknown job name in overdue worker');
+  throw new Error(`Unknown job name in overdue worker: ${job.name}`);
 }
 
 export function createOverdueWorker(): Worker {
   const worker = new Worker(
     OVERDUE_JOBS_QUEUE_NAME,
     async (job: Job) => {
-      logger.info({ jobId: job.id, jobName: job.name }, 'Processing scheduled overdue job');
-      if (job.name === OVERDUE_DETECTION_JOB_NAME) {
-        const result = await processOverdueDetection();
-        logger.info({ jobId: job.id, ...result }, 'Overdue detection job completed');
-        return result;
-      }
-      if (job.name === DEADLINE_REMINDER_JOB_NAME) {
-        const result = await processDeadlineReminders();
-        logger.info({ jobId: job.id, ...result }, 'Deadline reminder job completed');
-        return result;
-      }
-      logger.warn({ jobId: job.id, jobName: job.name }, 'Unknown job name in overdue worker');
-      return {};
+      return await processOverdueJob(job);
     },
     {
       connection: redisConnection,

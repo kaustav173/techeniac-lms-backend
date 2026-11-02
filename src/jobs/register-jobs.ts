@@ -26,9 +26,7 @@ let overdueWorker: ReturnType<typeof createOverdueWorker> | null = null;
 
 export async function registerScheduledJobs(): Promise<void> {
   try {
-    if (tokenCleanupQueue || emailWorker || overdueWorker) {
-      await closeScheduledJobs();
-    }
+    await closeScheduledJobs();
 
     const emailQueue = initEmailQueue();
     registerBullBoardQueue(emailQueue);
@@ -63,6 +61,12 @@ export async function registerScheduledJobs(): Promise<void> {
 
     overdueQueue = new Queue(OVERDUE_JOBS_QUEUE_NAME, {
       connection: redisConnection,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 200 },
+      },
     });
     registerBullBoardQueue(overdueQueue);
 
@@ -70,6 +74,7 @@ export async function registerScheduledJobs(): Promise<void> {
       OVERDUE_DETECTION_SCHEDULER_ID,
       {
         pattern: '0 0 * * *',
+        tz: 'UTC',
       },
       {
         name: OVERDUE_DETECTION_JOB_NAME,
@@ -84,6 +89,7 @@ export async function registerScheduledJobs(): Promise<void> {
       DEADLINE_REMINDER_SCHEDULER_ID,
       {
         pattern: '0 8 * * *',
+        tz: 'UTC',
       },
       {
         name: DEADLINE_REMINDER_JOB_NAME,
@@ -106,35 +112,64 @@ export async function registerScheduledJobs(): Promise<void> {
 
 export async function closeScheduledJobs(): Promise<void> {
   if (emailWorker) {
-    logger.info('Closing BullMQ email worker...');
-    await emailWorker.close();
-    emailWorker = null;
+    try {
+      logger.info('Closing BullMQ email worker...');
+      await emailWorker.close();
+    } catch (err) {
+      logger.error({ err }, 'Error closing BullMQ email worker');
+    } finally {
+      emailWorker = null;
+    }
   }
 
-  logger.info('Closing BullMQ email queue...');
-  await closeEmailQueue();
+  try {
+    logger.info('Closing BullMQ email queue...');
+    await closeEmailQueue();
+  } catch (err) {
+    logger.error({ err }, 'Error closing BullMQ email queue');
+  }
 
   if (tokenCleanupWorker) {
-    logger.info('Closing BullMQ token cleanup worker...');
-    await tokenCleanupWorker.close();
-    tokenCleanupWorker = null;
+    try {
+      logger.info('Closing BullMQ token cleanup worker...');
+      await tokenCleanupWorker.close();
+    } catch (err) {
+      logger.error({ err }, 'Error closing BullMQ token cleanup worker');
+    } finally {
+      tokenCleanupWorker = null;
+    }
   }
 
   if (tokenCleanupQueue) {
-    logger.info('Closing BullMQ token cleanup queue...');
-    await tokenCleanupQueue.close();
-    tokenCleanupQueue = null;
+    try {
+      logger.info('Closing BullMQ token cleanup queue...');
+      await tokenCleanupQueue.close();
+    } catch (err) {
+      logger.error({ err }, 'Error closing BullMQ token cleanup queue');
+    } finally {
+      tokenCleanupQueue = null;
+    }
   }
 
   if (overdueWorker) {
-    logger.info('Closing BullMQ overdue worker...');
-    await overdueWorker.close();
-    overdueWorker = null;
+    try {
+      logger.info('Closing BullMQ overdue worker...');
+      await overdueWorker.close();
+    } catch (err) {
+      logger.error({ err }, 'Error closing BullMQ overdue worker');
+    } finally {
+      overdueWorker = null;
+    }
   }
 
   if (overdueQueue) {
-    logger.info('Closing BullMQ overdue queue...');
-    await overdueQueue.close();
-    overdueQueue = null;
+    try {
+      logger.info('Closing BullMQ overdue queue...');
+      await overdueQueue.close();
+    } catch (err) {
+      logger.error({ err }, 'Error closing BullMQ overdue queue');
+    } finally {
+      overdueQueue = null;
+    }
   }
 }

@@ -391,3 +391,25 @@
     - `SUPER_ADMIN` $\rightarrow$ `[]` (immutable role; no modifications permitted).
   - Preflight `getRoleImpact` flags invalid or immutable queries with `isBlocked: true` and appropriate `blockReason` values.
   - Frontend consumers must align UI dropdowns and action buttons with these rules.
+
+---
+
+## ADR-020: Scheduled Overdue Detection and Deadline Reminder Jobs Architecture
+
+- **Date**: 2026-10-31
+- **Status**: Accepted
+- **Context**: Timely tracking of course and topic deadlines requires periodic background checks without impacting HTTP request response times. Scheduled jobs must detect overdue allocations/topics and upcoming deadlines, emit lifecycle events, and integrate into Bull Board for monitoring.
+- **Options**:
+  1. Ad-hoc in-process timers (`setInterval`) inside the Express server.
+  2. Embed business query logic, sliding-window calculations, and event emission directly inside the BullMQ worker processor.
+  3. BullMQ scheduler (`upsertJobScheduler`) on an isolated `overdue-jobs` queue with thin worker dispatchers delegating orchestration to `AllocationsService` and `ProgressService`.
+- **Choice**: Option 3 (Thin BullMQ worker dispatching to domain services).
+- **Reasons**:
+  - **Architectural Boundary Integrity**: Keeps business logic, repository queries, calculations, and domain event emissions strictly inside domain service classes (`AllocationsService`, `ProgressService`), preserving the rule that worker files are thin dispatchers.
+  - **Repeat-Safe Query Windows**: Upcoming reminders query a bounded 24-hour band (`[now + 24h, now + 48h]`) matching the 24-hour cron period to prevent duplicate reminder events on successive daily runs. Overdue detection bounds checks to newly overdue items (`since = now - 24h`) capped at 1000 items per batch.
+  - **Resilience and Explicit Configuration**: Configures BullMQ with explicit retry policies (`attempts: 3`, exponential backoff) and explicit `tz: 'UTC'` to eliminate container timezone drift.
+  - **Clean Teardown and Resource Safety**: Centralized job registration cleanly closes existing worker and queue handles before re-registering, wrapping individual resource closures in isolated error boundaries.
+- **Consequences**:
+  - `overdue-jobs` queue registers `daily-overdue-detection` (cron `0 0 * * *`, UTC) and `daily-deadline-reminders` (cron `0 8 * * *`, UTC).
+  - Worker dispatches to `allocationsService.detectOverdueAllocations`, `allocationsService.processDeadlineReminders`, and `progressService.detectOverdueTopics`.
+  - Emitted events (`allocation.overdueDetected`, `topic.overdueDetected`, `allocation.reminderDue`) serve as integration points for future notification delivery consumers.
