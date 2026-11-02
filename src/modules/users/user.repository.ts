@@ -2,7 +2,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { AppDataSource } from '../../core/db';
 // eslint-disable-next-line architecture/cross-module-index-imports -- import enum directly to prevent circular barrel initialization between users and batches
-import { BatchStatus } from '../batches/entities/batch.enums';
+import { BatchMemberRole, BatchStatus } from '../batches/entities/batch.enums';
 import { User, UserRole } from './entities/user.entity';
 import { UserRoleHistory } from './entities/user-role-history.entity';
 import type { UserQueryParams } from './users.schemas';
@@ -205,6 +205,7 @@ export class UserRepository {
         SELECT 1 FROM batch_members bm
         INNER JOIN batches b ON b.id = bm.batch_id
         WHERE bm.user_id = "user"."id"
+          AND bm.member_role = '${BatchMemberRole.MENTEE}'
           AND bm.is_active = true
           AND bm.deleted_at IS NULL
           AND b.status IN ('${BatchStatus.DRAFT}', '${BatchStatus.LIVE}', '${BatchStatus.ON_HOLD}')

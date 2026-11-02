@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import type { EntityManager, SelectQueryBuilder } from 'typeorm';
 
-import { type User, userQuerySchema, UserRepository } from '../../src/modules/users';
+import { type User, userQuerySchema, UserRepository, UserRole } from '../../src/modules/users';
 
 void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
   void describe('userQuerySchema Parsing', () => {
@@ -62,13 +62,42 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
       await repo.findAll({ page: 1, limit: 10, withoutActiveBatch: true }, mockManager);
 
       const hasNotExists = andWhereClauses.some(
-        (c) => c.includes('NOT EXISTS') && c.includes('batch_members bm'),
+        (c) =>
+          c.includes('NOT EXISTS') &&
+          c.includes('batch_members bm') &&
+          c.includes("bm.member_role = 'MENTEE'"),
       );
       assert.strictEqual(hasNotExists, true);
       assert.strictEqual(
         andWhereClauses.some((c) => c.includes("b.status IN ('DRAFT', 'LIVE', 'ON_HOLD')")),
         true,
       );
+    });
+
+    void it('appends active mentee batch check when role is MENTOR and withoutActiveBatch is true', async () => {
+      const repo = new UserRepository();
+      const { qb, andWhereClauses } = createMockQueryBuilder();
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => qb,
+        }),
+      } as unknown as EntityManager;
+
+      await repo.findAll(
+        { page: 1, limit: 10, role: UserRole.MENTOR, withoutActiveBatch: true },
+        mockManager,
+      );
+
+      const hasRoleClause = andWhereClauses.some((c) => c.includes('user.role = :role'));
+      assert.strictEqual(hasRoleClause, true);
+
+      const hasMenteeScopedSubquery = andWhereClauses.some(
+        (c) =>
+          c.includes('NOT EXISTS') &&
+          c.includes('batch_members bm') &&
+          c.includes("bm.member_role = 'MENTEE'"),
+      );
+      assert.strictEqual(hasMenteeScopedSubquery, true);
     });
 
     void it('appends EXISTS when withoutActiveBatch is false', async () => {
