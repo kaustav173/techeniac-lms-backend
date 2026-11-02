@@ -45,7 +45,7 @@ async function runTests(): Promise<void> {
       adminUser = await userRepo.save(
         userRepo.create({
           name: `Admin Test ${uniqueSuffix}`,
-          email: `admin-perf-${uniqueSuffix}@techeniac.com`,
+          email: `admin-perf-${uniqueSuffix}@TechEniac.com`,
           passwordHash: 'dummy_hash',
           role: UserRole.SUPER_ADMIN,
           isActive: true,
@@ -60,7 +60,7 @@ async function runTests(): Promise<void> {
       mentorUser = await userRepo.save(
         userRepo.create({
           name: `Mentor Test ${uniqueSuffix}`,
-          email: `mentor-perf-${uniqueSuffix}@techeniac.com`,
+          email: `mentor-perf-${uniqueSuffix}@TechEniac.com`,
           passwordHash: 'dummy_hash',
           role: UserRole.MENTOR,
           isActive: true,
@@ -75,7 +75,7 @@ async function runTests(): Promise<void> {
       menteeUser = await userRepo.save(
         userRepo.create({
           name: `Mentee Test ${uniqueSuffix}`,
-          email: `mentee-perf-${uniqueSuffix}@techeniac.com`,
+          email: `mentee-perf-${uniqueSuffix}@TechEniac.com`,
           passwordHash: 'dummy_hash',
           role: UserRole.MENTEE,
           isActive: true,

@@ -25,7 +25,7 @@ import type { User, UserRole } from '../../src/modules/users';
 const createTestUser = (overrides: Partial<AuthenticatedUser>): AuthenticatedUser => ({
   id: 'test-user-id',
   name: 'Test User',
-  email: 'test@techeniac.com',
+  email: 'test@TechEniac.com',
   role: 'SUPER_ADMIN',
   mustChangePassword: false,
   tokenVersion: 1,
@@ -92,7 +92,7 @@ void describe('AllocationsService Unit Tests (PRD M7: ALC-01 to ALC-24)', () => 
       const mockUsers = ids.map((id) => ({
         id,
         name: `User ${id}`,
-        email: `${id}@techeniac.com`,
+        email: `${id}@TechEniac.com`,
         role: (id.startsWith('mentor') ? 'MENTOR' : 'MENTEE') as UserRole,
         isActive: true,
       })) as unknown as User[];
@@ -283,7 +283,7 @@ void describe('AllocationsService Unit Tests (PRD M7: ALC-01 to ALC-24)', () => 
 
       await new Promise((resolve) => setImmediate(resolve));
 
-      assert.equal(emailDispatchedTo, 'mentee-1@techeniac.com');
+      assert.equal(emailDispatchedTo, 'mentee-1@TechEniac.com');
       assert.equal(emailCourseTitle, activeCourse.title);
     });
 
@@ -692,7 +692,7 @@ void describe('AllocationsService Unit Tests (PRD M7: ALC-01 to ALC-24)', () => 
         batchId: liveBatch.id,
         startDate: new Date('2026-11-01T00:00:00.000Z'),
         dueDate: new Date('2026-11-10T00:00:00.000Z'),
-        user: { name: 'Mentee 1', email: 'mentee-1@techeniac.com' },
+        user: { name: 'Mentee 1', email: 'mentee-1@TechEniac.com' },
         course: { title: 'TypeScript Essentials' },
       } as unknown as CourseAllocation;
 
@@ -705,7 +705,7 @@ void describe('AllocationsService Unit Tests (PRD M7: ALC-01 to ALC-24)', () => 
         adminUser,
       );
 
-      assert.equal(emailDispatchedTo, 'mentee-1@techeniac.com');
+      assert.equal(emailDispatchedTo, 'mentee-1@TechEniac.com');
       assert.equal(emailNewDueDate, '2026-11-20');
     });
 

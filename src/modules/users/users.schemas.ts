@@ -50,6 +50,15 @@ export const userQuerySchema = z.object({
       { message: 'Invalid mentor ID format. Expected UUID or comma-separated UUIDs' },
     )
     .optional(),
+  withoutActiveBatch: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'true') return true;
+        if (val.toLowerCase() === 'false') return false;
+      }
+      return val;
+    }, z.boolean())
+    .optional(),
 });
 
 export const listUsersSchema = z.object({

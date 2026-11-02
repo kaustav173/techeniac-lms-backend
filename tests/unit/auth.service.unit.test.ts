@@ -49,7 +49,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
   const activeMockUser = {
     id: '11111111-1111-4111-8111-111111111111',
     name: 'Test Active User',
-    email: 'active@techeniac.com',
+    email: 'active@TechEniac.com',
     passwordHash: '',
     role: UserRole.MENTEE,
     tokenVersion: 1,
@@ -63,12 +63,13 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
   const inactiveMockUser: User = {
     ...activeMockUser,
     id: '22222222-2222-4222-8222-222222222222',
-    email: 'inactive@techeniac.com',
+    email: 'inactive@TechEniac.com',
     isActive: false,
   };
 
   beforeEach(async () => {
     validPasswordHash = await hashPassword(validPassword);
+    activeMockUser.name = 'Test Active User';
     activeMockUser.passwordHash = validPasswordHash;
     inactiveMockUser.passwordHash = validPasswordHash;
 
@@ -95,6 +96,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
       updateLastLogin: () => Promise.resolve(),
       updatePassword: () => Promise.resolve(),
       incrementTokenVersion: () => Promise.resolve(),
+      save: (user: User) => Promise.resolve(user),
     };
 
     mockTokenRepo = {
@@ -182,7 +184,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
       await assert.rejects(
         () =>
           authService.login({
-            email: 'nonexistent@techeniac.com',
+            email: 'nonexistent@TechEniac.com',
             password: validPassword,
           }),
         (err: Error) => {
@@ -325,6 +327,73 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
           return true;
         },
       );
+    });
+  });
+
+  void describe('updateProfile', () => {
+    void it('updates user name, leaves email untouched, and preserves payload shape', async () => {
+      let saveCalls = 0;
+      let savedUser: User | null = null;
+      mockUserRepo.save = (user: User) => {
+        saveCalls++;
+        savedUser = user;
+        return Promise.resolve(user);
+      };
+
+      const updated = await authService.updateProfile(activeMockUser.id, {
+        name: 'New Profile Name',
+      });
+
+      assert.strictEqual(saveCalls, 1);
+      assert.strictEqual(savedUser?.name, 'New Profile Name');
+      assert.strictEqual(savedUser?.updatedBy, activeMockUser.id);
+      assert.strictEqual(updated.name, 'New Profile Name');
+      assert.strictEqual(updated.email, activeMockUser.email);
+      assertUserPayloadShape(updated, {
+        isActive: true,
+        createdAt: mockCreatedAt,
+      });
+      assert.strictEqual(activeMockUser.updatedBy, activeMockUser.id);
+    });
+
+    void it('trims leading and trailing whitespace from name', async () => {
+      let saveCalls = 0;
+      let savedUser: User | null = null;
+      mockUserRepo.save = (user: User) => {
+        saveCalls++;
+        savedUser = user;
+        return Promise.resolve(user);
+      };
+
+      const updated = await authService.updateProfile(activeMockUser.id, {
+        name: '  Trimmed User Name  ',
+      });
+
+      assert.strictEqual(saveCalls, 1);
+      assert.strictEqual(savedUser?.name, 'Trimmed User Name');
+      assert.strictEqual(updated.name, 'Trimmed User Name');
+    });
+
+    void it('throws NotFoundError when user does not exist', async () => {
+      let saveCalls = 0;
+      mockUserRepo.save = (user: User) => {
+        saveCalls++;
+        return Promise.resolve(user);
+      };
+
+      await assert.rejects(
+        () =>
+          authService.updateProfile('00000000-0000-0000-0000-000000000000', {
+            name: 'Nonexistent User',
+          }),
+        (err: Error) => {
+          assert.strictEqual(err instanceof NotFoundError, true);
+          assert.strictEqual(err.message, 'User not found');
+          return true;
+        },
+      );
+
+      assert.strictEqual(saveCalls, 0);
     });
   });
 });

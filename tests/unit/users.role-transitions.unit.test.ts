@@ -15,7 +15,7 @@ void describe('User Role Transition Rules Unit Tests', () => {
   const menteeUser = {
     id: '11111111-1111-4111-a111-111111111111',
     name: 'Mentee User',
-    email: 'mentee@techeniac.com',
+    email: 'mentee@TechEniac.com',
     role: UserRole.MENTEE,
     isActive: true,
   } as unknown as User;
@@ -23,7 +23,7 @@ void describe('User Role Transition Rules Unit Tests', () => {
   const mentorUser = {
     id: '22222222-2222-4222-a222-222222222222',
     name: 'Mentor User',
-    email: 'mentor@techeniac.com',
+    email: 'mentor@TechEniac.com',
     role: UserRole.MENTOR,
     isActive: true,
   } as unknown as User;
@@ -31,7 +31,7 @@ void describe('User Role Transition Rules Unit Tests', () => {
   const superAdminUser = {
     id: '33333333-3333-4333-a333-333333333333',
     name: 'Super Admin User',
-    email: 'admin@techeniac.com',
+    email: 'admin@TechEniac.com',
     role: UserRole.SUPER_ADMIN,
     isActive: true,
   } as unknown as User;

@@ -22,7 +22,7 @@ type InternalCoursesService = {
 const createTestUser = (overrides: Partial<AuthenticatedUser>): AuthenticatedUser => ({
   id: 'test-user-id',
   name: 'Test User',
-  email: 'test@techeniac.com',
+  email: 'test@TechEniac.com',
   role: 'MENTOR',
   mustChangePassword: false,
   tokenVersion: 1,
@@ -39,28 +39,28 @@ void describe('CoursesService Unit Tests', () => {
     const superAdmin = createTestUser({
       id: 'admin-1-id',
       name: 'Super Admin',
-      email: 'admin@techeniac.com',
+      email: 'admin@TechEniac.com',
       role: 'SUPER_ADMIN',
     });
 
     const courseCreator = createTestUser({
       id: 'mentor-1-id',
       name: 'Mentor Creator',
-      email: 'creator@techeniac.com',
+      email: 'creator@TechEniac.com',
       role: 'MENTOR',
     });
 
     const anotherMentor = createTestUser({
       id: 'mentor-2-id',
       name: 'Another Mentor',
-      email: 'other@techeniac.com',
+      email: 'other@TechEniac.com',
       role: 'MENTOR',
     });
 
     const mentee = createTestUser({
       id: 'mentee-1-id',
       name: 'Mentee User',
-      email: 'mentee@techeniac.com',
+      email: 'mentee@TechEniac.com',
       role: 'MENTEE',
     });
 
@@ -95,7 +95,7 @@ void describe('CoursesService Unit Tests', () => {
     const user = createTestUser({
       id: 'mentor-1-id',
       name: 'Mentor Creator',
-      email: 'creator@techeniac.com',
+      email: 'creator@TechEniac.com',
       role: 'MENTOR',
     });
 
@@ -226,7 +226,7 @@ void describe('CoursesService Unit Tests', () => {
     const user = createTestUser({
       id: 'mentor-1-id',
       name: 'Mentor Creator',
-      email: 'creator@techeniac.com',
+      email: 'creator@TechEniac.com',
       role: 'MENTOR',
     });
 
@@ -320,7 +320,7 @@ void describe('CoursesService Unit Tests', () => {
     const user = createTestUser({
       id: 'mentor-1-id',
       name: 'Mentor Creator',
-      email: 'creator@techeniac.com',
+      email: 'creator@TechEniac.com',
       role: 'MENTOR',
     });
 

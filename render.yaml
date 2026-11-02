@@ -39,4 +39,4 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: SMTP_FROM
-        value: Techeniac LMS <noreply@techeniac.com>
+        value: TechEniac LMS <noreply@TechEniac.com>

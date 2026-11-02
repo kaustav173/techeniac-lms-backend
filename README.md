@@ -1,4 +1,4 @@
-# techeniac-lms-backend
+# TechEniac-lms-backend
 
 ## Prerequisites
 

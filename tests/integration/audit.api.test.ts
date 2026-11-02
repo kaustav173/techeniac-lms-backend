@@ -39,7 +39,7 @@ void describe('Audit Log API Integration Tests (Module 14: AUD-01 to AUD-05)', (
       if (id === adminId) {
         return Promise.resolve({
           id: adminId,
-          email: 'admin@techeniac.com',
+          email: 'admin@TechEniac.com',
           name: 'Super Admin',
           role: UserRole.SUPER_ADMIN,
           isActive: true,
@@ -49,7 +49,7 @@ void describe('Audit Log API Integration Tests (Module 14: AUD-01 to AUD-05)', (
       if (id === mentorId) {
         return Promise.resolve({
           id: mentorId,
-          email: 'mentor@techeniac.com',
+          email: 'mentor@TechEniac.com',
           name: 'Mentor User',
           role: UserRole.MENTOR,
           isActive: true,
@@ -59,7 +59,7 @@ void describe('Audit Log API Integration Tests (Module 14: AUD-01 to AUD-05)', (
       if (id === menteeId) {
         return Promise.resolve({
           id: menteeId,
-          email: 'mentee@techeniac.com',
+          email: 'mentee@TechEniac.com',
           name: 'Mentee User',
           role: UserRole.MENTEE,
           isActive: true,
@@ -71,21 +71,21 @@ void describe('Audit Log API Integration Tests (Module 14: AUD-01 to AUD-05)', (
 
     tokenAdmin = signAccessToken({
       sub: adminId,
-      email: 'admin@techeniac.com',
+      email: 'admin@TechEniac.com',
       role: 'SUPER_ADMIN',
       tokenVersion: 1,
     });
 
     tokenMentor = signAccessToken({
       sub: mentorId,
-      email: 'mentor@techeniac.com',
+      email: 'mentor@TechEniac.com',
       role: 'MENTOR',
       tokenVersion: 1,
     });
 
     tokenMentee = signAccessToken({
       sub: menteeId,
-      email: 'mentee@techeniac.com',
+      email: 'mentee@TechEniac.com',
       role: 'MENTEE',
       tokenVersion: 1,
     });

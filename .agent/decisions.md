@@ -52,10 +52,10 @@
 
 - **Date**: 2026-10-14
 - **Status**: Accepted
-- **Context**: The Techeniac LMS consists of an API backend and a separate user-facing frontend. We must choose repository organization.
+- **Context**: The TechEniac LMS consists of an API backend and a separate user-facing frontend. We must choose repository organization.
 - **Options**:
   1. Monorepo housing both backend and frontend.
-  2. Decoupled individual repositories (`techeniac-lms-backend` and separate frontend repo).
+  2. Decoupled individual repositories (`TechEniac-lms-backend` and separate frontend repo).
 - **Choice**: Decoupled individual repositories.
 - **Reasons**:
   - Independent deployment cycles and CI/CD pipelines.

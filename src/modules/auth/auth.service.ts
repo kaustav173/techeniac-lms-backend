@@ -30,6 +30,7 @@ import type {
   ForgotPasswordInput,
   LoginInput,
   ResetPasswordInput,
+  UpdateProfileInput,
 } from './schemas/auth.schemas';
 import { TokenRepository, tokenRepository } from './token.repository';
 
@@ -66,6 +67,7 @@ export interface IAuthService {
   resetPassword(input: ResetPasswordInput): Promise<void>;
   verifyResetToken(token: string): Promise<VerifyResetTokenResult>;
   changePassword(userId: string, input: ChangePasswordInput): Promise<AuthResult>;
+  updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUserPayload>;
 }
 
 export class AuthService implements IAuthService {
@@ -484,6 +486,18 @@ export class AuthService implements IAuthService {
         },
       };
     });
+  }
+
+  public async updateProfile(userId: string, input: UpdateProfileInput): Promise<AuthUserPayload> {
+    const user = await this.userRepo.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    user.name = input.name.trim();
+    user.updatedBy = userId;
+    const updatedUser = await this.userRepo.save(user);
+    return this.toAuthUserPayload(updatedUser);
   }
 }
 

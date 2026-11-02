@@ -27,7 +27,7 @@ void describe('Module 3: User 360 Profile Unit Tests (HIS-01 to HIS-09)', () => 
   const mockUser = {
     id: 'user-uuid-1',
     name: 'Jane Doe',
-    email: 'jane@techeniac.com',
+    email: 'jane@TechEniac.com',
     role: UserRole.MENTOR,
     isActive: true,
     mustChangePassword: false,
@@ -98,7 +98,7 @@ void describe('Module 3: User 360 Profile Unit Tests (HIS-01 to HIS-09)', () => 
       mentor: {
         id: 'mentor-uuid-9',
         name: 'Bob Senior',
-        email: 'bob@techeniac.com',
+        email: 'bob@TechEniac.com',
       } as unknown as User,
       mentee: mockUser,
     } as unknown as MentorMentee,
@@ -116,7 +116,7 @@ void describe('Module 3: User 360 Profile Unit Tests (HIS-01 to HIS-09)', () => 
       mentee: {
         id: 'mentee-uuid-42',
         name: 'Charlie Junior',
-        email: 'charlie@techeniac.com',
+        email: 'charlie@TechEniac.com',
       } as unknown as User,
     } as unknown as MentorMentee,
   ];
@@ -288,7 +288,7 @@ void describe('Module 3: User 360 Profile Unit Tests (HIS-01 to HIS-09)', () => 
 
     assert.ok(csv.includes('--- USER 360 PROFILE ---'));
     assert.ok(csv.includes('Jane Doe'));
-    assert.ok(csv.includes('jane@techeniac.com'));
+    assert.ok(csv.includes('jane@TechEniac.com'));
     assert.ok(csv.includes('--- ROLE HISTORY ---'));
     assert.ok(csv.includes('--- BATCH HISTORY ---'));
     assert.ok(csv.includes('ALPHA-2026'));

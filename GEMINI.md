@@ -1,6 +1,6 @@
-# Techeniac LMS Backend
+# TechEniac LMS Backend
 
-Techeniac LMS Backend provides the REST API, domain business logic, and PostgreSQL data persistence for the Techeniac Learning Management System. It is engineered with Node.js 24, Express, TypeScript strict mode, and TypeORM on Neon PostgreSQL.
+TechEniac LMS Backend provides the REST API, domain business logic, and PostgreSQL data persistence for the TechEniac Learning Management System. It is engineered with Node.js 24, Express, TypeScript strict mode, and TypeORM on Neon PostgreSQL.
 
 ## Repository Map
 

@@ -23,7 +23,7 @@ export interface BaseLayoutOptions {
 }
 
 /**
- * Shared HTML wrapper providing consistent styling, branding, and layout for Techeniac LMS emails.
+ * Shared HTML wrapper providing consistent styling, branding, and layout for TechEniac LMS emails.
  */
 export function renderBaseEmailLayout(options: BaseLayoutOptions): string {
   const { title, content, footerNote } = options;
@@ -49,10 +49,10 @@ export function renderBaseEmailLayout(options: BaseLayoutOptions): string {
 </head>
 <body>
   <div class="container">
-    <div class="logo">Techeniac LMS</div>
+    <div class="logo">TechEniac LMS</div>
     ${content}
     <div class="footer">
-      Techeniac LMS • Learning Management System${footerNoteHtml}
+      TechEniac LMS • Learning Management System${footerNoteHtml}
     </div>
   </div>
 </body>
