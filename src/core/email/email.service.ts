@@ -112,6 +112,18 @@ export interface SendTopicDeadlineChangedOptions {
   deadline: string;
 }
 
+export interface EmailServiceConfig {
+  emailProvider: 'sendgrid' | 'smtp';
+  sendgridApiKey?: string;
+  sendgridFromEmail?: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpFrom?: string;
+}
+
 interface DispatchMailOptions {
   to: string;
   subject: string;
@@ -122,47 +134,109 @@ interface DispatchMailOptions {
   metadata?: Record<string, unknown>;
 }
 
-function parseFromEmail(from: string): { email: string; name?: string } {
-  const match = from.match(/^(?:"?([^"]*)"?\s)?<?([^>]+)>?$/);
+export function parseFromEmail(from: string): { email: string; name?: string } {
+  const trimmed = from.trim();
+  const match = trimmed.match(/^(?:"?([^"]*)"?\s)?<?([^>]+)>?$/);
   if (match && match[2]) {
     const name = match[1]?.trim();
     const email = match[2].trim();
     return name ? { email, name } : { email };
   }
-  return { email: from.trim() };
+  return { email: trimmed };
 }
 
 export class EmailService {
   private readonly transporter: Transporter | null = null;
   private readonly isSendGridConfigured: boolean = false;
-  private readonly fromEmail: string;
+  private readonly fromHeaderValue: string;
   private readonly fromRecipient: { email: string; name?: string };
 
-  constructor() {
-    this.fromEmail = env.SENDGRID_FROM_EMAIL || env.SMTP_FROM;
-    this.fromRecipient = parseFromEmail(this.fromEmail);
+  constructor(customConfig?: Partial<EmailServiceConfig>) {
+    const provider =
+      customConfig && 'emailProvider' in customConfig
+        ? customConfig.emailProvider!
+        : env.EMAIL_PROVIDER;
 
-    if (env.EMAIL_PROVIDER === 'sendgrid' && env.SENDGRID_API_KEY) {
-      sgMail.setApiKey(env.SENDGRID_API_KEY);
+    const apiKey =
+      customConfig && 'sendgridApiKey' in customConfig
+        ? customConfig.sendgridApiKey
+        : env.SENDGRID_API_KEY;
+
+    const sendgridFrom =
+      customConfig && 'sendgridFromEmail' in customConfig
+        ? customConfig.sendgridFromEmail
+        : env.SENDGRID_FROM_EMAIL;
+
+    const smtpFrom =
+      customConfig && 'smtpFrom' in customConfig ? customConfig.smtpFrom : env.SMTP_FROM;
+
+    const smtpHost =
+      customConfig && 'smtpHost' in customConfig ? customConfig.smtpHost : env.SMTP_HOST;
+
+    const smtpPort =
+      customConfig && 'smtpPort' in customConfig ? customConfig.smtpPort : env.SMTP_PORT;
+
+    const smtpSecure =
+      customConfig && 'smtpSecure' in customConfig ? customConfig.smtpSecure : env.SMTP_SECURE;
+
+    const smtpUser =
+      customConfig && 'smtpUser' in customConfig ? customConfig.smtpUser : env.SMTP_USER;
+
+    const smtpPass =
+      customConfig && 'smtpPass' in customConfig ? customConfig.smtpPass : env.SMTP_PASS;
+
+    if (provider === 'sendgrid' && apiKey) {
+      this.fromHeaderValue = sendgridFrom || smtpFrom || 'Techeniac LMS <noreply@techeniac.com>';
+      this.fromRecipient = parseFromEmail(this.fromHeaderValue);
+      sgMail.setApiKey(apiKey);
       this.isSendGridConfigured = true;
-    } else if (env.SMTP_HOST) {
+    } else if (smtpHost) {
+      this.fromHeaderValue = smtpFrom || 'Techeniac LMS <noreply@techeniac.com>';
+      this.fromRecipient = parseFromEmail(this.fromHeaderValue);
       // Port 465 requires direct SSL (secure: true); port 587 uses STARTTLS (secure: false)
-      const secure = env.SMTP_PORT === 465 ? true : env.SMTP_SECURE && env.SMTP_PORT !== 587;
+      const secure = smtpPort === 465 ? true : smtpSecure && smtpPort !== 587;
       this.transporter = nodemailer.createTransport({
         pool: true,
         maxConnections: 5,
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
+        host: smtpHost,
+        port: smtpPort,
         secure,
         requireTLS: true,
         auth:
-          env.SMTP_USER && env.SMTP_PASS
+          smtpUser && smtpPass
             ? {
-                user: env.SMTP_USER,
-                pass: env.SMTP_PASS,
+                user: smtpUser,
+                pass: smtpPass,
               }
             : undefined,
       });
+    } else {
+      this.fromHeaderValue = sendgridFrom || smtpFrom || 'Techeniac LMS <noreply@techeniac.com>';
+      this.fromRecipient = parseFromEmail(this.fromHeaderValue);
+    }
+  }
+
+  private async executeSend(
+    sendFn: () => Promise<unknown>,
+    service: 'sendgrid' | 'smtp',
+    contextName: string,
+    rethrowError: boolean,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await sendFn();
+      logger.info(
+        { ...metadata, service },
+        `${contextName} email dispatched successfully via ${service === 'sendgrid' ? 'SendGrid' : 'SMTP'}`,
+      );
+    } catch (error) {
+      logger.error(
+        { err: error, event: 'EMAIL_DISPATCH_FAILURE', service, ...metadata },
+        `Failed to dispatch ${contextName} email via ${service === 'sendgrid' ? 'SendGrid' : 'SMTP'}`,
+      );
+      if (rethrowError) {
+        throw error;
+      }
     }
   }
 
@@ -170,54 +244,38 @@ export class EmailService {
     const { to, subject, text, html, contextName, rethrowError = false, metadata = {} } = options;
 
     if (this.isSendGridConfigured) {
-      try {
-        await sgMail.send({
-          to,
-          from: this.fromRecipient,
-          subject,
-          text,
-          html,
-        });
-
-        logger.info(
-          { ...metadata, service: 'sendgrid' },
-          `${contextName} email dispatched successfully via SendGrid`,
-        );
-      } catch (error) {
-        logger.error(
-          { err: error, event: 'EMAIL_DISPATCH_FAILURE', service: 'sendgrid', ...metadata },
-          `Failed to dispatch ${contextName} email via SendGrid`,
-        );
-        if (rethrowError) {
-          throw error;
-        }
-      }
+      await this.executeSend(
+        () =>
+          sgMail.send({
+            to,
+            from: this.fromRecipient,
+            subject,
+            text,
+            html,
+          }),
+        'sendgrid',
+        contextName,
+        rethrowError,
+        metadata,
+      );
       return;
     }
 
     if (this.transporter) {
-      try {
-        await this.transporter.sendMail({
-          from: this.fromEmail,
-          to,
-          subject,
-          text,
-          html,
-        });
-
-        logger.info(
-          { ...metadata, service: 'smtp' },
-          `${contextName} email dispatched successfully via SMTP`,
-        );
-      } catch (error) {
-        logger.error(
-          { err: error, event: 'EMAIL_DISPATCH_FAILURE', service: 'smtp', ...metadata },
-          `Failed to dispatch ${contextName} email via SMTP`,
-        );
-        if (rethrowError) {
-          throw error;
-        }
-      }
+      await this.executeSend(
+        () =>
+          this.transporter!.sendMail({
+            from: this.fromHeaderValue,
+            to,
+            subject,
+            text,
+            html,
+          }),
+        'smtp',
+        contextName,
+        rethrowError,
+        metadata,
+      );
       return;
     }
 
@@ -238,7 +296,7 @@ export class EmailService {
       text,
       html,
       contextName: 'Password reset',
-      metadata: { to },
+      metadata: {},
     });
   }
 
@@ -260,7 +318,7 @@ export class EmailService {
       html,
       contextName: 'User invitation',
       rethrowError: true,
-      metadata: { to, role },
+      metadata: { role },
     });
   }
 

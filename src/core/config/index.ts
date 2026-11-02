@@ -10,7 +10,7 @@ if (fs.existsSync(envPath)) {
   process.loadEnvFile(envPath);
 }
 
-const envSchema = z
+export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(4000),
