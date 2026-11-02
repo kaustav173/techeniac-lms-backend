@@ -332,10 +332,21 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
 
   void describe('updateProfile', () => {
     void it('updates user name, leaves email untouched, and preserves payload shape', async () => {
+      let saveCalls = 0;
+      let savedUser: User | null = null;
+      mockUserRepo.save = (user: User) => {
+        saveCalls++;
+        savedUser = user;
+        return Promise.resolve(user);
+      };
+
       const updated = await authService.updateProfile(activeMockUser.id, {
         name: 'New Profile Name',
       });
 
+      assert.strictEqual(saveCalls, 1);
+      assert.strictEqual(savedUser?.name, 'New Profile Name');
+      assert.strictEqual(savedUser?.updatedBy, activeMockUser.id);
       assert.strictEqual(updated.name, 'New Profile Name');
       assert.strictEqual(updated.email, activeMockUser.email);
       assertUserPayloadShape(updated, {
@@ -346,14 +357,30 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
     });
 
     void it('trims leading and trailing whitespace from name', async () => {
+      let saveCalls = 0;
+      let savedUser: User | null = null;
+      mockUserRepo.save = (user: User) => {
+        saveCalls++;
+        savedUser = user;
+        return Promise.resolve(user);
+      };
+
       const updated = await authService.updateProfile(activeMockUser.id, {
         name: '  Trimmed User Name  ',
       });
 
+      assert.strictEqual(saveCalls, 1);
+      assert.strictEqual(savedUser?.name, 'Trimmed User Name');
       assert.strictEqual(updated.name, 'Trimmed User Name');
     });
 
     void it('throws NotFoundError when user does not exist', async () => {
+      let saveCalls = 0;
+      mockUserRepo.save = (user: User) => {
+        saveCalls++;
+        return Promise.resolve(user);
+      };
+
       await assert.rejects(
         () =>
           authService.updateProfile('00000000-0000-0000-0000-000000000000', {
@@ -365,6 +392,8 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
           return true;
         },
       );
+
+      assert.strictEqual(saveCalls, 0);
     });
   });
 });
