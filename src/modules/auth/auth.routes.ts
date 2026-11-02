@@ -15,6 +15,7 @@ import {
   loginSchema,
   refreshTokenSchema,
   resetPasswordSchema,
+  updateProfileSchema,
   verifyResetTokenSchema,
 } from './schemas/auth.schemas';
 
@@ -52,4 +53,10 @@ authRouter.post(
   requireAuth,
   validate(changePasswordSchema),
   authController.changePassword,
+);
+authRouter.patch(
+  '/profile',
+  requireAuth,
+  validate(updateProfileSchema),
+  authController.updateProfile,
 );
