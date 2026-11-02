@@ -363,6 +363,6 @@ async function runAuditTests(): Promise<void> {
 
 runAuditTests().catch(async (err) => {
   logger.error({ err }, 'Unhandled test runner exception.');
-  await closeDatabase().catch(() => { });
+  await closeDatabase().catch(() => {});
   process.exit(1);
 });

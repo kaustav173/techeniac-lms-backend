@@ -562,10 +562,10 @@ async function runProgressTests(): Promise<void> {
       if (createdUserIds.length > 0) {
         await AppDataSource.query('DELETE FROM tokens WHERE user_id = ANY($1::uuid[])', [
           createdUserIds,
-        ]).catch(() => { });
+        ]).catch(() => {});
         await AppDataSource.query('DELETE FROM user_role_history WHERE user_id = ANY($1::uuid[])', [
           createdUserIds,
-        ]).catch(() => { });
+        ]).catch(() => {});
         await AppDataSource.query('DELETE FROM users WHERE id = ANY($1::uuid[])', [createdUserIds]);
       }
       logger.info('Cleaned up M8 test fixtures successfully');
