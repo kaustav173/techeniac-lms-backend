@@ -3,10 +3,10 @@ import { z } from 'zod';
 
 import { env } from '../config';
 
-export const JWT_ISSUER = 'TechEniac-lms';
-export const AUDIENCE_ACCESS = 'TechEniac-lms:access';
-export const AUDIENCE_REFRESH = 'TechEniac-lms:refresh';
-export const AUDIENCE_PASSWORD_RESET = 'TechEniac-lms:password_reset';
+export const JWT_ISSUER = 'techeniac-lms';
+export const AUDIENCE_ACCESS = 'techeniac-lms:access';
+export const AUDIENCE_REFRESH = 'techeniac-lms:refresh';
+export const AUDIENCE_PASSWORD_RESET = 'techeniac-lms:password_reset';
 
 export const accessTokenPayloadSchema = z.object({
   sub: z.string().min(1),

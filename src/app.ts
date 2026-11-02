@@ -41,7 +41,7 @@ export function createApp(): Express {
 
   app.get('/api/v1', (_req, res) => {
     res.status(StatusCodes.OK).json({
-      name: 'TechEniac-lms-backend',
+      name: 'techeniac-lms-backend',
       version: '0.1.0',
       status: 'operational',
     });

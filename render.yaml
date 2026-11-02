@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: TechEniac-lms-backend
+    name: techeniac-lms-backend
     runtime: node
     plan: free
     branch: dev
