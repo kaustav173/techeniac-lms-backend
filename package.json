@@ -31,6 +31,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "@bull-board/api": "^9.10.5",
     "@bull-board/express": "^9.10.5",
     "argon2": "^0.45.1",

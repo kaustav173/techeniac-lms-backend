@@ -10,7 +10,7 @@ if (fs.existsSync(envPath)) {
   process.loadEnvFile(envPath);
 }
 
-const envSchema = z
+export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(4000),
@@ -43,6 +43,9 @@ const envSchema = z
     ACCESS_TOKEN_TTL: z.string().default('15m'),
     REFRESH_TOKEN_TTL: z.string().default('7d'),
     FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+    EMAIL_PROVIDER: z.enum(['sendgrid', 'smtp']).default('sendgrid'),
+    SENDGRID_API_KEY: z.string().optional(),
+    SENDGRID_FROM_EMAIL: z.string().optional(),
     SMTP_HOST: z.string().optional(),
     SMTP_PORT: z.coerce.number().int().positive().default(587),
     SMTP_SECURE: z
@@ -59,12 +62,21 @@ const envSchema = z
     REDIS_PASSWORD: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.NODE_ENV === 'production' && !data.SMTP_HOST) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['SMTP_HOST'],
-        message: 'SMTP_HOST is required in production environment',
-      });
+    if (data.NODE_ENV === 'production') {
+      if (data.EMAIL_PROVIDER === 'sendgrid' && !data.SENDGRID_API_KEY) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SENDGRID_API_KEY'],
+          message:
+            'SENDGRID_API_KEY is required in production environment when EMAIL_PROVIDER is sendgrid',
+        });
+      } else if (data.EMAIL_PROVIDER === 'smtp' && !data.SMTP_HOST) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SMTP_HOST'],
+          message: 'SMTP_HOST is required in production environment when EMAIL_PROVIDER is smtp',
+        });
+      }
     }
   });
 
