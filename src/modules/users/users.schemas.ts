@@ -35,7 +35,21 @@ export const userQuerySchema = z.object({
   status: z.enum(['active', 'inactive']).optional(),
   search: z.string().trim().max(100).optional(),
   batchId: z.string().uuid('Invalid batch ID').optional(),
-  mentorId: z.string().uuid('Invalid mentor ID').optional(),
+  mentorId: z
+    .string()
+    .trim()
+    .refine(
+      (val) => {
+        const ids = val
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        return ids.length > 0 && ids.every((id) => uuidRegex.test(id));
+      },
+      { message: 'Invalid mentor ID format. Expected UUID or comma-separated UUIDs' },
+    )
+    .optional(),
 });
 
 export const listUsersSchema = z.object({
