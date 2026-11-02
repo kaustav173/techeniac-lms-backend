@@ -49,7 +49,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
   const activeMockUser = {
     id: '11111111-1111-4111-8111-111111111111',
     name: 'Test Active User',
-    email: 'active@techeniac.com',
+    email: 'active@TechEniac.com',
     passwordHash: '',
     role: UserRole.MENTEE,
     tokenVersion: 1,
@@ -63,7 +63,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
   const inactiveMockUser: User = {
     ...activeMockUser,
     id: '22222222-2222-4222-8222-222222222222',
-    email: 'inactive@techeniac.com',
+    email: 'inactive@TechEniac.com',
     isActive: false,
   };
 
@@ -184,7 +184,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
       await assert.rejects(
         () =>
           authService.login({
-            email: 'nonexistent@techeniac.com',
+            email: 'nonexistent@TechEniac.com',
             password: validPassword,
           }),
         (err: Error) => {

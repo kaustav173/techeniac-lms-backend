@@ -52,7 +52,7 @@ const envSchema = z
       .pipe(z.boolean()),
     SMTP_USER: z.string().optional(),
     SMTP_PASS: z.string().optional(),
-    SMTP_FROM: z.string().default('Techeniac LMS <noreply@techeniac.com>'),
+    SMTP_FROM: z.string().default('TechEniac LMS <noreply@TechEniac.com>'),
     REDIS_URL: z.string().optional(),
     REDIS_HOST: z.string().default('127.0.0.1'),
     REDIS_PORT: z.coerce.number().int().positive().default(6379),

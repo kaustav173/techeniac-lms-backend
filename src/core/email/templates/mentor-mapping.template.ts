@@ -34,12 +34,12 @@ export function renderMentorMappedEmail(params: MentorMappedEmailParams): EmailT
   const portalUrl = params.portalUrl;
 
   const subject = params.isMentor
-    ? `Techeniac LMS – New Mentee Mapped in ${params.batchName}`
-    : `Techeniac LMS – Mentor Assigned for ${params.batchName}`;
+    ? `TechEniac LMS – New Mentee Mapped in ${params.batchName}`
+    : `TechEniac LMS – Mentor Assigned for ${params.batchName}`;
 
   const text = params.isMentor
-    ? `Hello ${params.recipientName},\n\nYou have been assigned as the mentor for ${params.otherPartyName} in batch "${params.batchName}".\n\nYou can access your cohort dashboard and review learning progress at: ${portalUrl}\n\nBest regards,\nThe Techeniac Team`
-    : `Hello ${params.recipientName},\n\n${params.otherPartyName} has been assigned as your mentor for batch "${params.batchName}".\n\nYou can access your learning portal at: ${portalUrl}\n\nBest regards,\nThe Techeniac Team`;
+    ? `Hello ${params.recipientName},\n\nYou have been assigned as the mentor for ${params.otherPartyName} in batch "${params.batchName}".\n\nYou can access your cohort dashboard and review learning progress at: ${portalUrl}\n\nBest regards,\nThe TechEniac Team`
+    : `Hello ${params.recipientName},\n\n${params.otherPartyName} has been assigned as your mentor for batch "${params.batchName}".\n\nYou can access your learning portal at: ${portalUrl}\n\nBest regards,\nThe TechEniac Team`;
 
   const content = params.isMentor
     ? `
@@ -63,7 +63,7 @@ export function renderMentorMappedEmail(params: MentorMappedEmailParams): EmailT
     title: subject,
     content,
     footerNote:
-      'This is an automated notification from Techeniac LMS. Please do not reply directly.',
+      'This is an automated notification from TechEniac LMS. Please do not reply directly.',
   });
 
   return { subject, text, html };
@@ -82,13 +82,13 @@ export function renderMenteeReassignedEmail(
   const safeReason = params.reason ? escapeHtml(params.reason) : 'Cohort structural update';
   const portalUrl = params.portalUrl;
 
-  let subject = `Techeniac LMS – Mentor Reassignment in ${params.batchName}`;
+  let subject = `TechEniac LMS – Mentor Reassignment in ${params.batchName}`;
   let text = '';
   let content = '';
 
   if (params.recipientRole === MenteeReassignRecipientRole.MENTEE) {
-    subject = `Techeniac LMS – Your Mentor Has Been Updated for ${params.batchName}`;
-    text = `Hello ${params.recipientName},\n\nYour mentor for batch "${params.batchName}" has been updated to ${params.mentorName}.\nReason: ${params.reason || 'Cohort structural update'}\n\nAccess portal: ${portalUrl}\n\nBest regards,\nThe Techeniac Team`;
+    subject = `TechEniac LMS – Your Mentor Has Been Updated for ${params.batchName}`;
+    text = `Hello ${params.recipientName},\n\nYour mentor for batch "${params.batchName}" has been updated to ${params.mentorName}.\nReason: ${params.reason || 'Cohort structural update'}\n\nAccess portal: ${portalUrl}\n\nBest regards,\nThe TechEniac Team`;
     content = `
       <h2 class="heading">Mentor Updated</h2>
       <p>Hello ${safeRecipientName},</p>
@@ -98,8 +98,8 @@ export function renderMenteeReassignedEmail(
         <a href="${portalUrl}" class="btn" target="_blank" rel="noopener noreferrer">Go to Portal</a>
       </div>`;
   } else if (params.recipientRole === MenteeReassignRecipientRole.NEW_MENTOR) {
-    subject = `Techeniac LMS – Mentee Reassigned to You in ${params.batchName}`;
-    text = `Hello ${params.recipientName},\n\nMentee ${params.menteeName} has been reassigned to you in batch "${params.batchName}".\nReason: ${params.reason || 'Cohort structural update'}\n\nAccess portal: ${portalUrl}\n\nBest regards,\nThe Techeniac Team`;
+    subject = `TechEniac LMS – Mentee Reassigned to You in ${params.batchName}`;
+    text = `Hello ${params.recipientName},\n\nMentee ${params.menteeName} has been reassigned to you in batch "${params.batchName}".\nReason: ${params.reason || 'Cohort structural update'}\n\nAccess portal: ${portalUrl}\n\nBest regards,\nThe TechEniac Team`;
     content = `
       <h2 class="heading">Mentee Reassigned to You</h2>
       <p>Hello ${safeRecipientName},</p>
@@ -110,8 +110,8 @@ export function renderMenteeReassignedEmail(
       </div>`;
   } else {
     // PREVIOUS_MENTOR
-    subject = `Techeniac LMS – Mentee Transition Notice for ${params.batchName}`;
-    text = `Hello ${params.recipientName},\n\nMentee ${params.menteeName} in batch "${params.batchName}" has been transitioned to ${params.mentorName}.\nReason: ${params.reason || 'Cohort structural update'}\n\nBest regards,\nThe Techeniac Team`;
+    subject = `TechEniac LMS – Mentee Transition Notice for ${params.batchName}`;
+    text = `Hello ${params.recipientName},\n\nMentee ${params.menteeName} in batch "${params.batchName}" has been transitioned to ${params.mentorName}.\nReason: ${params.reason || 'Cohort structural update'}\n\nBest regards,\nThe TechEniac Team`;
     content = `
       <h2 class="heading">Mentee Transition Notice</h2>
       <p>Hello ${safeRecipientName},</p>
@@ -124,7 +124,7 @@ export function renderMenteeReassignedEmail(
     title: subject,
     content,
     footerNote:
-      'This is an automated notification from Techeniac LMS. Please do not reply directly.',
+      'This is an automated notification from TechEniac LMS. Please do not reply directly.',
   });
 
   return { subject, text, html };

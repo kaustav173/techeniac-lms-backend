@@ -1,6 +1,6 @@
 # Git Safety Rules
 
-These rules are non-negotiable and apply to all agents and automated tools working on `techeniac-lms-backend`.
+These rules are non-negotiable and apply to all agents and automated tools working on `TechEniac-lms-backend`.
 
 ## Mandatory Approval for State-Changing Commands
 

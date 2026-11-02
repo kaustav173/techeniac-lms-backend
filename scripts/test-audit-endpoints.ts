@@ -53,9 +53,9 @@ async function runAuditTests(): Promise<void> {
       return u;
     }
 
-    const admin = await getOrCreateUser('admin@techeniac.com', 'Super Admin', UserRole.SUPER_ADMIN);
-    const mentor = await getOrCreateUser('mentor@techeniac.com', 'Test Mentor', UserRole.MENTOR);
-    const mentee = await getOrCreateUser('mentee@techeniac.com', 'Test Mentee', UserRole.MENTEE);
+    const admin = await getOrCreateUser('admin@TechEniac.com', 'Super Admin', UserRole.SUPER_ADMIN);
+    const mentor = await getOrCreateUser('mentor@TechEniac.com', 'Test Mentor', UserRole.MENTOR);
+    const mentee = await getOrCreateUser('mentee@TechEniac.com', 'Test Mentee', UserRole.MENTEE);
 
     // Generate test auth tokens with real user IDs
     const adminToken = signAccessToken({

@@ -44,7 +44,7 @@ async function runTests(): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: process.env.SEED_ADMIN_EMAIL || 'admin@techeniac.com',
+        email: process.env.SEED_ADMIN_EMAIL || 'admin@TechEniac.com',
         password: process.env.SEED_ADMIN_PASSWORD || 'Admin123456!',
       }),
     });

@@ -36,28 +36,28 @@ void describe('Courses API Integration Tests', () => {
   before(async () => {
     tokenMentorA = signAccessToken({
       sub: mentorAId,
-      email: 'mentorA@techeniac.com',
+      email: 'mentorA@TechEniac.com',
       role: 'MENTOR',
       tokenVersion: 1,
     });
 
     tokenMentorB = signAccessToken({
       sub: mentorBId,
-      email: 'mentorB@techeniac.com',
+      email: 'mentorB@TechEniac.com',
       role: 'MENTOR',
       tokenVersion: 1,
     });
 
     tokenAdmin = signAccessToken({
       sub: adminId,
-      email: 'admin@techeniac.com',
+      email: 'admin@TechEniac.com',
       role: 'SUPER_ADMIN',
       tokenVersion: 1,
     });
 
     tokenMentee = signAccessToken({
       sub: menteeId,
-      email: 'mentee@techeniac.com',
+      email: 'mentee@TechEniac.com',
       role: 'MENTEE',
       tokenVersion: 1,
     });
@@ -81,7 +81,7 @@ void describe('Courses API Integration Tests', () => {
       if (id === mentorAId) {
         return Promise.resolve({
           id: mentorAId,
-          email: 'mentorA@techeniac.com',
+          email: 'mentorA@TechEniac.com',
           role: 'MENTOR',
           isActive: true,
           tokenVersion: 1,
@@ -90,7 +90,7 @@ void describe('Courses API Integration Tests', () => {
       if (id === mentorBId) {
         return Promise.resolve({
           id: mentorBId,
-          email: 'mentorB@techeniac.com',
+          email: 'mentorB@TechEniac.com',
           role: 'MENTOR',
           isActive: true,
           tokenVersion: 1,
@@ -99,7 +99,7 @@ void describe('Courses API Integration Tests', () => {
       if (id === adminId) {
         return Promise.resolve({
           id: adminId,
-          email: 'admin@techeniac.com',
+          email: 'admin@TechEniac.com',
           role: 'SUPER_ADMIN',
           isActive: true,
           tokenVersion: 1,
@@ -108,7 +108,7 @@ void describe('Courses API Integration Tests', () => {
       if (id === menteeId) {
         return Promise.resolve({
           id: menteeId,
-          email: 'mentee@techeniac.com',
+          email: 'mentee@TechEniac.com',
           role: 'MENTEE',
           isActive: true,
           tokenVersion: 1,
@@ -349,7 +349,7 @@ void describe('Courses API Integration Tests', () => {
         creator: {
           id: mentorAId,
           name: 'Mentor Alice',
-          email: 'alice@techeniac.com',
+          email: 'alice@TechEniac.com',
           tokenVersion: 5,
           mustChangePassword: true,
           lastLoginAt: new Date(),

@@ -33,20 +33,20 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
   before(async () => {
     tokenSuperAdmin = signAccessToken({
       sub: superAdminId,
-      email: 'admin@techeniac.com',
+      email: 'admin@TechEniac.com',
       role: 'SUPER_ADMIN',
       tokenVersion: 1,
     });
     tokenMentee = signAccessToken({
       sub: menteeId,
-      email: 'mentee@techeniac.com',
+      email: 'mentee@TechEniac.com',
       role: 'MENTEE',
       tokenVersion: 1,
     });
 
     tokenNonMentee = signAccessToken({
       sub: nonMenteeId,
-      email: 'mentor@techeniac.com',
+      email: 'mentor@TechEniac.com',
       role: 'MENTOR',
       tokenVersion: 1,
     });
@@ -118,7 +118,7 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
       if (id === superAdminId) {
         return Promise.resolve({
           id: superAdminId,
-          email: 'admin@techeniac.com',
+          email: 'admin@TechEniac.com',
           name: 'Super Admin',
           role: UserRole.SUPER_ADMIN,
           isActive: true,
@@ -128,7 +128,7 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
       if (id === menteeId) {
         return Promise.resolve({
           id: menteeId,
-          email: 'mentee@techeniac.com',
+          email: 'mentee@TechEniac.com',
           name: 'Raj Mentee',
           role: UserRole.MENTEE,
           isActive: true,
@@ -138,7 +138,7 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
       if (id === nonMenteeId) {
         return Promise.resolve({
           id: nonMenteeId,
-          email: 'mentor@techeniac.com',
+          email: 'mentor@TechEniac.com',
           name: 'Kaustav Mentor',
           role: UserRole.MENTOR,
           isActive: true,
@@ -148,7 +148,7 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
       if (id === '99999999-9999-4999-a999-999999999999') {
         return Promise.resolve({
           id: '99999999-9999-4999-a999-999999999999',
-          email: 'admin@techeniac.com',
+          email: 'admin@TechEniac.com',
           name: 'Super Admin',
           role: UserRole.SUPER_ADMIN,
           isActive: true,
@@ -273,14 +273,14 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
           assignmentId,
           confirmedComplete: true,
           submissionData: {
-            linkUrl: 'https://github.com/techeniac/lms',
+            linkUrl: 'https://github.com/TechEniac/lms',
           },
         }),
       });
 
       assert.equal(res.status, 201);
       const json = (await res.json()) as { data: Submission };
-      assert.equal(json.data.submissionData.linkUrl, 'https://github.com/techeniac/lms');
+      assert.equal(json.data.submissionData.linkUrl, 'https://github.com/TechEniac/lms');
     });
 
     void it('SUB-05: accepts PDF + ZIP + URL together', async () => {
@@ -296,7 +296,7 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
           submissionData: {
             pdfUrl: 'https://example.com/report.pdf',
             zipUrl: 'https://example.com/code.zip',
-            linkUrl: 'https://github.com/techeniac/lms',
+            linkUrl: 'https://github.com/TechEniac/lms',
           },
         }),
       });
@@ -748,7 +748,7 @@ void describe('Submissions API Integration Tests (Module 9)', () => {
                 feedback: null,
                 gradedBy: null,
                 gradedAt: null,
-                mentee: { id: menteeId, name: 'Alice', email: 'alice@techeniac.com' },
+                mentee: { id: menteeId, name: 'Alice', email: 'alice@TechEniac.com' },
               },
             ],
             total: 1,

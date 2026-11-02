@@ -49,7 +49,7 @@ async function runDashboardTests(): Promise<void> {
   };
 
   const createTestUser = async (role: UserRole): Promise<{ token: string; id: string }> => {
-    const email = `test-${role.toLowerCase()}-${randomBytes(4).toString('hex')}@techeniac.test`;
+    const email = `test-${role.toLowerCase()}-${randomBytes(4).toString('hex')}@TechEniac.test`;
     const passwordHash = await hashPassword('Password123!');
     const user = await userRepository.create({
       name: `Test ${role}`,

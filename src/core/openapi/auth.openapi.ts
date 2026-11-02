@@ -1,7 +1,7 @@
 export const authOpenApiSpec = {
   openapi: '3.0.3',
   info: {
-    title: 'Techeniac LMS - Auth API',
+    title: 'TechEniac LMS - Auth API',
     version: '0.1.0',
     description: 'Enterprise authentication and session management contract',
   },

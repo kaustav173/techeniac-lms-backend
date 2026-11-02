@@ -52,7 +52,7 @@ async function runProgressTests(): Promise<void> {
     const uniqueSuffix = Date.now().toString().slice(-6);
 
     async function createDisposableUser(name: string, role: UserRole, prefix: string) {
-      const email = `${prefix}-m8-${uniqueSuffix}@techeniac.com`;
+      const email = `${prefix}-m8-${uniqueSuffix}@TechEniac.com`;
       const password = process.env.TEST_PASSWORD || `TestP@ss-${randomUUID()}`;
       const passwordHash = await hashPassword(password);
       const u = await userRepository.create({

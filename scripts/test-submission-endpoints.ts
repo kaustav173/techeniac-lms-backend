@@ -60,7 +60,7 @@ async function runTests(): Promise<void> {
     // 1. Create a dedicated test mentee for this script run
     testMentee = userRepo.create({
       name: `Test Mentee M9 ${uniqueSuffix}`,
-      email: `test-mentee-m9-${uniqueSuffix}@techeniac.com`,
+      email: `test-mentee-m9-${uniqueSuffix}@TechEniac.com`,
       passwordHash: 'dummy_hash',
       role: UserRole.MENTEE,
       isActive: true,
@@ -162,7 +162,7 @@ async function runTests(): Promise<void> {
       body: JSON.stringify({
         assignmentId: testAssignment.id,
         confirmedComplete: false,
-        submissionData: { linkUrl: 'https://github.com/techeniac/lms-test' },
+        submissionData: { linkUrl: 'https://github.com/TechEniac/lms-test' },
       }),
     });
 
@@ -202,7 +202,7 @@ async function runTests(): Promise<void> {
         assignmentId: testAssignment.id,
         confirmedComplete: true,
         submissionData: {
-          linkUrl: 'https://github.com/techeniac/lms-submission-v1',
+          linkUrl: 'https://github.com/TechEniac/lms-submission-v1',
           pdfUrl: 'https://example.com/project-report.pdf',
         },
       }),
@@ -236,7 +236,7 @@ async function runTests(): Promise<void> {
         assignmentId: testAssignment.id,
         confirmedComplete: true,
         submissionData: {
-          linkUrl: 'https://github.com/techeniac/lms-submission-v2',
+          linkUrl: 'https://github.com/TechEniac/lms-submission-v2',
         },
       }),
     });
