@@ -20,7 +20,7 @@ import { UserRole } from '../../src/modules/users';
 const createTestUser = (overrides: Partial<AuthenticatedUser>): AuthenticatedUser => ({
   id: 'test-user-id',
   name: 'Test User',
-  email: 'test@techeniac.com',
+  email: 'test@TechEniac.com',
   role: UserRole.SUPER_ADMIN,
   mustChangePassword: false,
   tokenVersion: 1,

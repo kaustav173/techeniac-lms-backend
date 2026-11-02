@@ -17,7 +17,7 @@ interface LoginResult {
   refreshToken: string;
 }
 
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'admin@techeniac.com';
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL || 'admin@TechEniac.com';
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Admin123456!';
 
 async function startServer(): Promise<{ server: Server; baseUrl: string }> {

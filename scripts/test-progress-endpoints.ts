@@ -52,7 +52,7 @@ async function runProgressTests(): Promise<void> {
     const uniqueSuffix = Date.now().toString().slice(-6);
 
     async function createDisposableUser(name: string, role: UserRole, prefix: string) {
-      const email = `${prefix}-m8-${uniqueSuffix}@techeniac.com`;
+      const email = `${prefix}-m8-${uniqueSuffix}@TechEniac.com`;
       const password = process.env.TEST_PASSWORD || `TestP@ss-${randomUUID()}`;
       const passwordHash = await hashPassword(password);
       const u = await userRepository.create({
@@ -562,10 +562,10 @@ async function runProgressTests(): Promise<void> {
       if (createdUserIds.length > 0) {
         await AppDataSource.query('DELETE FROM tokens WHERE user_id = ANY($1::uuid[])', [
           createdUserIds,
-        ]).catch(() => {});
+        ]).catch(() => { });
         await AppDataSource.query('DELETE FROM user_role_history WHERE user_id = ANY($1::uuid[])', [
           createdUserIds,
-        ]).catch(() => {});
+        ]).catch(() => { });
         await AppDataSource.query('DELETE FROM users WHERE id = ANY($1::uuid[])', [createdUserIds]);
       }
       logger.info('Cleaned up M8 test fixtures successfully');

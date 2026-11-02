@@ -2,7 +2,7 @@
 
 ## Overview
 
-`techeniac-lms-backend` is an API-first Learning Management System backend service implemented as a modular monolith. It provides REST APIs consumed by a decoupled frontend application.
+`TechEniac-lms-backend` is an API-first Learning Management System backend service implemented as a modular monolith. It provides REST APIs consumed by a decoupled frontend application.
 
 ## Core Tech Stack
 

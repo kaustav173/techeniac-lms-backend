@@ -9,7 +9,7 @@ import { userRepository } from '../src/modules/users/user.repository';
 
 async function seedAdmin(): Promise<void> {
   const name = process.env.SEED_ADMIN_NAME?.trim() || 'Super Admin';
-  const email = process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@techeniac.com';
+  const email = process.env.SEED_ADMIN_EMAIL?.trim() || 'admin@TechEniac.com';
   const password = process.env.SEED_ADMIN_PASSWORD;
 
   if (!password) {

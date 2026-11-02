@@ -1,6 +1,6 @@
-# Techeniac LMS Backend - Agent Guidelines
+# TechEniac LMS Backend - Agent Guidelines
 
-These rules and guidelines apply to all AI agents and developers working on the `techeniac-lms-backend` repository.
+These rules and guidelines apply to all AI agents and developers working on the `TechEniac-lms-backend` repository.
 
 ## Branch & Pull Request Rules
 

@@ -424,7 +424,7 @@ export class SubmissionsService {
     batchId: string | null,
   ): Promise<void> {
     try {
-      let recipientEmail = 'admin@techeniac.com';
+      let recipientEmail = 'admin@TechEniac.com';
       let recipientName = 'Super Admin';
 
       if (batchId) {

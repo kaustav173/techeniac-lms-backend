@@ -31,7 +31,7 @@ import { User, userRepository } from '../../src/modules/users';
 const createTestUser = (overrides: Partial<AuthenticatedUser>): AuthenticatedUser => ({
   id: 'test-user-id',
   name: 'Test User',
-  email: 'test@techeniac.com',
+  email: 'test@TechEniac.com',
   role: 'SUPER_ADMIN',
   mustChangePassword: false,
   tokenVersion: 1,
@@ -550,7 +550,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
         courseId: 'course-1',
         startDate: new Date('2026-11-01T00:00:00.000Z'),
         dueDate: new Date('2026-11-30T00:00:00.000Z'),
-        user: { email: 'mentee@techeniac.com', name: 'Mentee' },
+        user: { email: 'mentee@TechEniac.com', name: 'Mentee' },
         course: { title: 'TypeScript' },
       } as unknown as CourseAllocation;
 
@@ -584,7 +584,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
         courseId: 'course-1',
         startDate: new Date('2026-11-01T00:00:00.000Z'),
         dueDate: new Date('2026-11-30T00:00:00.000Z'),
-        user: { email: 'mentee@techeniac.com', name: 'Mentee' },
+        user: { email: 'mentee@TechEniac.com', name: 'Mentee' },
         course: { title: 'TypeScript' },
       } as unknown as CourseAllocation;
 
@@ -676,7 +676,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
         courseId: 'course-1',
         startDate: new Date('2026-11-01T00:00:00.000Z'),
         dueDate: new Date('2026-11-30T00:00:00.000Z'),
-        user: { email: 'mentee@techeniac.com', name: 'Mentee' },
+        user: { email: 'mentee@TechEniac.com', name: 'Mentee' },
         course: { title: 'TypeScript' },
       } as unknown as CourseAllocation;
 
@@ -938,7 +938,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
       userRepository.findById = () =>
         Promise.resolve({
           id: 'mentor-1',
-          email: 'mentor@techeniac.com',
+          email: 'mentor@TechEniac.com',
           name: 'Bob Mentor',
         } as unknown as User);
 
@@ -953,7 +953,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
       assert.equal(result.status, CourseAllocationStatus.COMPLETED);
       assert.equal(result.progressPercent, 100);
       assert.notEqual(emailedMentorPayload, null);
-      assert.equal(emailedMentorPayload?.to, 'mentor@techeniac.com');
+      assert.equal(emailedMentorPayload?.to, 'mentor@TechEniac.com');
       assert.equal(emailedMentorPayload?.menteeName, 'Alice Mentee');
       assert.equal(emailedMentorPayload?.courseTitle, 'Node.js Mastery');
     });

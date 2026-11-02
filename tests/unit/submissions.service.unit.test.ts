@@ -29,7 +29,7 @@ void describe('SubmissionsService Unit Tests (Module 9)', () => {
 
   const baseUser: User = {
     id: menteeId,
-    email: 'mentee@techeniac.com',
+    email: 'mentee@TechEniac.com',
     name: 'Mentee Raj',
     role: UserRole.MENTEE,
     isActive: true,

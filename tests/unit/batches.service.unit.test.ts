@@ -26,7 +26,7 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     startDate: new Date('2026-01-01'),
     endDate: new Date('2026-12-31'),
     description: 'Test batch description',
-    creator: { id: 'admin-1', name: 'Admin', email: 'admin@techeniac.com' },
+    creator: { id: 'admin-1', name: 'Admin', email: 'admin@TechEniac.com' },
   } as unknown as Batch;
 
   const mockMentorMember = {
@@ -35,7 +35,7 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     userId: mentorId,
     memberRole: BatchMemberRole.MENTOR,
     isActive: true,
-    user: { id: mentorId, name: 'Mentor User', email: 'mentor@techeniac.com' },
+    user: { id: mentorId, name: 'Mentor User', email: 'mentor@TechEniac.com' },
   } as unknown as BatchMember;
 
   const mockOtherMentorMember = {
@@ -44,7 +44,7 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     userId: otherMentorId,
     memberRole: BatchMemberRole.MENTOR,
     isActive: true,
-    user: { id: otherMentorId, name: 'Other Mentor', email: 'other_mentor@techeniac.com' },
+    user: { id: otherMentorId, name: 'Other Mentor', email: 'other_mentor@TechEniac.com' },
   } as unknown as BatchMember;
 
   const mockMenteeMember = {
@@ -56,7 +56,7 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     user: {
       id: '33333333-3333-4333-a333-333333333333',
       name: 'Mentee User',
-      email: 'mentee@techeniac.com',
+      email: 'mentee@TechEniac.com',
     },
   } as unknown as BatchMember;
 
@@ -69,7 +69,7 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     user: {
       id: '44444444-4444-4444-a444-444444444444',
       name: 'Second Mentee',
-      email: 'second_mentee@techeniac.com',
+      email: 'second_mentee@TechEniac.com',
     },
   } as unknown as BatchMember;
 

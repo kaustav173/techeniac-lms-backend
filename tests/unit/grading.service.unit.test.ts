@@ -21,7 +21,7 @@ import { User, UserRole } from '../../src/modules/users';
 const createTestUser = (overrides: Partial<AuthenticatedUser>): AuthenticatedUser => ({
   id: 'test-user-id',
   name: 'Test User',
-  email: 'test@techeniac.com',
+  email: 'test@TechEniac.com',
   role: UserRole.SUPER_ADMIN,
   mustChangePassword: false,
   tokenVersion: 1,
@@ -38,7 +38,7 @@ void describe('Module 10: Submission Queue, Review & Grading Unit Tests (REV-01 
   const mockMenteeUser = {
     id: 'mentee-1',
     name: 'Mentee Alice',
-    email: 'alice@techeniac.com',
+    email: 'alice@TechEniac.com',
   } as User;
 
   const mockAssignment = {
@@ -262,7 +262,7 @@ void describe('Module 10: Submission Queue, Review & Grading Unit Tests (REV-01 
       const mockAlloc = {
         id: 'alloc-1',
         userId: 'mentee-1',
-        user: { id: 'mentee-1', name: 'Mentee Alice', email: 'alice@techeniac.com' } as User,
+        user: { id: 'mentee-1', name: 'Mentee Alice', email: 'alice@TechEniac.com' } as User,
       } as unknown as CourseAllocation;
 
       gradingRepository.lockAndFindSubmission = () => Promise.resolve(mockSub);
@@ -277,7 +277,7 @@ void describe('Module 10: Submission Queue, Review & Grading Unit Tests (REV-01 
         emailDispatched = true;
         assert.equal(opts.marks, 90);
         assert.equal(opts.gradeLabel, 'A+');
-        assert.equal(opts.to, 'alice@techeniac.com');
+        assert.equal(opts.to, 'alice@TechEniac.com');
         return Promise.resolve();
       };
 
@@ -317,7 +317,7 @@ void describe('Module 10: Submission Queue, Review & Grading Unit Tests (REV-01 
       const mockAlloc = {
         id: 'alloc-1',
         userId: 'mentee-1',
-        user: { id: 'mentee-1', name: 'Mentee Alice', email: 'alice@techeniac.com' } as User,
+        user: { id: 'mentee-1', name: 'Mentee Alice', email: 'alice@TechEniac.com' } as User,
       } as unknown as CourseAllocation;
 
       gradingRepository.lockAndFindSubmission = () => Promise.resolve(mockSub);
@@ -331,7 +331,7 @@ void describe('Module 10: Submission Queue, Review & Grading Unit Tests (REV-01 
       emailService.sendResubmissionRequestedEmail = (opts) => {
         emailDispatched = true;
         assert.equal(opts.feedback, 'Please fix tests');
-        assert.equal(opts.to, 'alice@techeniac.com');
+        assert.equal(opts.to, 'alice@TechEniac.com');
         return Promise.resolve();
       };
 

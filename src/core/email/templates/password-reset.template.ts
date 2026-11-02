@@ -13,18 +13,18 @@ export function renderPasswordResetEmail(params: PasswordResetEmailParams): Emai
   const safeName = escapeHtml(recipientName);
   const resetUrl = params.resetUrl;
 
-  const subject = 'Reset Your Techeniac LMS Password';
+  const subject = 'Reset Your TechEniac LMS Password';
 
   const text = `Hello ${recipientName},
 
-You requested to reset your password for Techeniac LMS. Please click the link below or copy and paste it into your browser to choose a new password:
+You requested to reset your password for TechEniac LMS. Please click the link below or copy and paste it into your browser to choose a new password:
 
 ${resetUrl}
 
 This link is valid for 30 minutes and can only be used once. If you did not request this, please ignore this email and your password will remain unchanged.
 
 Best regards,
-The Techeniac Team`;
+The TechEniac Team`;
 
   const content = `
     <h2 class="heading">Password Reset Request</h2>

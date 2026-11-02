@@ -45,24 +45,24 @@ async function runMappingTests(): Promise<void> {
 
     const uniqueSuffix = Date.now().toString().slice(-6);
 
-    const admin = await getOrCreateUser('admin@techeniac.com', 'Super Admin', UserRole.SUPER_ADMIN);
+    const admin = await getOrCreateUser('admin@TechEniac.com', 'Super Admin', UserRole.SUPER_ADMIN);
     const mentorA = await getOrCreateUser(
-      `mentor-a-${uniqueSuffix}@techeniac.com`,
+      `mentor-a-${uniqueSuffix}@TechEniac.com`,
       'Mentor Alpha',
       UserRole.MENTOR,
     );
     const mentorB = await getOrCreateUser(
-      `mentor-b-${uniqueSuffix}@techeniac.com`,
+      `mentor-b-${uniqueSuffix}@TechEniac.com`,
       'Mentor Beta',
       UserRole.MENTOR,
     );
     const mentee1 = await getOrCreateUser(
-      `mentee-1-${uniqueSuffix}@techeniac.com`,
+      `mentee-1-${uniqueSuffix}@TechEniac.com`,
       'Mentee One',
       UserRole.MENTEE,
     );
     const mentee2 = await getOrCreateUser(
-      `mentee-2-${uniqueSuffix}@techeniac.com`,
+      `mentee-2-${uniqueSuffix}@TechEniac.com`,
       'Mentee Two',
       UserRole.MENTEE,
     );
@@ -207,7 +207,7 @@ async function runMappingTests(): Promise<void> {
     const bulkMentees = [];
     for (let i = 3; i <= 5; i++) {
       const m = await getOrCreateUser(
-        `bulk-mentee-${i}-${uniqueSuffix}@techeniac.com`,
+        `bulk-mentee-${i}-${uniqueSuffix}@TechEniac.com`,
         `Bulk Mentee ${i}`,
         UserRole.MENTEE,
       );
@@ -313,7 +313,7 @@ async function runMappingTests(): Promise<void> {
     // Test 6: MAP-07 - Attempt to map a mentee to a mentor who is NOT in the batch
     // -------------------------------------------------------------
     const externalMentor = await getOrCreateUser(
-      `external-mentor-${uniqueSuffix}@techeniac.com`,
+      `external-mentor-${uniqueSuffix}@TechEniac.com`,
       'External Mentor',
       UserRole.MENTOR,
     );
@@ -464,17 +464,17 @@ async function runMappingTests(): Promise<void> {
     const batchCId = batchCData.data.batch.id;
 
     const mentorC = await getOrCreateUser(
-      `mentor-c-${uniqueSuffix}@techeniac.com`,
+      `mentor-c-${uniqueSuffix}@TechEniac.com`,
       'Mentor Gamma',
       UserRole.MENTOR,
     );
     const mentorD = await getOrCreateUser(
-      `mentor-d-${uniqueSuffix}@techeniac.com`,
+      `mentor-d-${uniqueSuffix}@TechEniac.com`,
       'Mentor Delta',
       UserRole.MENTOR,
     );
     const menteeC = await getOrCreateUser(
-      `mentee-c-${uniqueSuffix}@techeniac.com`,
+      `mentee-c-${uniqueSuffix}@TechEniac.com`,
       'Mentee Gamma',
       UserRole.MENTEE,
     );

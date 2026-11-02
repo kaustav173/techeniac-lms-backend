@@ -84,16 +84,16 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
 
     adminUser = await createUser(
       `Admin ${suffix}`,
-      `admin_${suffix}@techeniac.com`,
+      `admin_${suffix}@TechEniac.com`,
       UserRole.SUPER_ADMIN,
     );
     mentorUser = await createUser(
       `Mentor ${suffix}`,
-      `mentor_${suffix}@techeniac.com`,
+      `mentor_${suffix}@TechEniac.com`,
       UserRole.MENTOR,
     );
-    mentee1 = await createUser(`Alice ${suffix}`, `alice_${suffix}@techeniac.com`, UserRole.MENTEE);
-    mentee2 = await createUser(`Bob ${suffix}`, `bob_${suffix}@techeniac.com`, UserRole.MENTEE);
+    mentee1 = await createUser(`Alice ${suffix}`, `alice_${suffix}@TechEniac.com`, UserRole.MENTEE);
+    mentee2 = await createUser(`Bob ${suffix}`, `bob_${suffix}@TechEniac.com`, UserRole.MENTEE);
 
     // 2. Seed Batch
     testBatch = await batchRepo.save(
