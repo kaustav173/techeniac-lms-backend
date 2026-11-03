@@ -34,30 +34,30 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
 
     void it('parses single valid UUID mentorId', () => {
       const parsed = userQuerySchema.parse({ mentorId: '11111111-1111-1111-1111-111111111111' });
-      assert.strictEqual(parsed.mentorId, '11111111-1111-1111-1111-111111111111');
+      assert.deepStrictEqual(parsed.mentorId, ['11111111-1111-1111-1111-111111111111']);
     });
 
     void it('parses comma-separated UUIDs mentorId and normalizes whitespace', () => {
       const parsed = userQuerySchema.parse({
         mentorId: '11111111-1111-1111-1111-111111111111,  22222222-2222-2222-2222-222222222222  ',
       });
-      assert.strictEqual(
-        parsed.mentorId,
-        '11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222',
-      );
+      assert.deepStrictEqual(parsed.mentorId, [
+        '11111111-1111-1111-1111-111111111111',
+        '22222222-2222-2222-2222-222222222222',
+      ]);
     });
 
-    void it('parses array of UUID strings mentorId into comma-separated string', () => {
+    void it('parses array of UUID strings mentorId into array', () => {
       const parsed = userQuerySchema.parse({
         mentorId: [
           '11111111-1111-1111-1111-111111111111',
           '22222222-2222-2222-2222-222222222222',
         ] as unknown as string,
       });
-      assert.strictEqual(
-        parsed.mentorId,
-        '11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222',
-      );
+      assert.deepStrictEqual(parsed.mentorId, [
+        '11111111-1111-1111-1111-111111111111',
+        '22222222-2222-2222-2222-222222222222',
+      ]);
     });
 
     void it('converts empty string mentorId to undefined', () => {
@@ -85,6 +85,18 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
         mentorId: '11111111-1111-1111-1111-111111111111,invalid-uuid',
       });
       assert.strictEqual(result.success, false);
+    });
+
+    void it('rejects more than 20 mentor IDs with validation error', () => {
+      const ids = Array.from(
+        { length: 21 },
+        (_, i) => `00000000-0000-0000-0000-${String(i).padStart(12, '0')}`,
+      );
+      const result = userQuerySchema.safeParse({ mentorId: ids });
+      assert.strictEqual(result.success, false);
+      if (!result.success) {
+        assert.match(result.error.errors[0]?.message ?? '', /At most 20 mentor IDs/);
+      }
     });
   });
 
@@ -189,7 +201,7 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
       assert.strictEqual(hasBatchCheck, false);
     });
 
-    void it('appends EXISTS with single mentorId = :mentorId when 1 mentor is passed', async () => {
+    void it('appends EXISTS with IN (:...mentorIds) when 1 mentor is passed', async () => {
       const repo = new UserRepository();
       const { qb, andWhereClauses, capturedParams } = createMockQueryBuilder();
       const mockManager = {
@@ -199,20 +211,20 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
       } as unknown as EntityManager;
 
       await repo.findAll(
-        { page: 1, limit: 10, mentorId: '11111111-1111-1111-1111-111111111111' },
+        { page: 1, limit: 10, mentorId: ['11111111-1111-1111-1111-111111111111'] },
         mockManager,
       );
 
-      const hasSingleMentorClause = andWhereClauses.some(
+      const hasMentorClause = andWhereClauses.some(
         (c) =>
           c.includes('EXISTS') &&
           c.includes('mentor_mentees mm') &&
-          c.includes('mm.mentor_id = :mentorId'),
+          c.includes('mm.mentor_id IN (:...mentorIds)'),
       );
-      assert.strictEqual(hasSingleMentorClause, true);
+      assert.strictEqual(hasMentorClause, true);
       assert.deepStrictEqual(
-        capturedParams.find((p) => 'mentorId' in p),
-        { mentorId: '11111111-1111-1111-1111-111111111111' },
+        capturedParams.find((p) => 'mentorIds' in p),
+        { mentorIds: ['11111111-1111-1111-1111-111111111111'] },
       );
     });
 
