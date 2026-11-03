@@ -18,6 +18,7 @@ export const getAuditLogsSchema = z.object({
       search: z.string().trim().max(100).optional(),
       startDate: dateStringSchema.optional(),
       endDate: dateStringSchema.optional(),
+      sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional(),
       page: z.coerce.number().int().min(1, 'Page must be at least 1').default(1),
       limit: z.coerce
         .number()
