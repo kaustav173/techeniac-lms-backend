@@ -1,4 +1,4 @@
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { Brackets, DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { AppDataSource } from '../../core/db';
 import { AuditAction, AuditLogType } from './entities/audit.enums';
@@ -61,6 +61,22 @@ export class AuditRepository {
 
     if (params.action) {
       qb.andWhere('audit.action ILIKE :action', { action: `%${params.action}%` });
+    }
+
+    if (params.search) {
+      const searchTerm = `%${params.search}%`;
+      qb.andWhere(
+        new Brackets((subQb) => {
+          subQb
+            .where('audit.action ILIKE :search', { search: searchTerm })
+            .orWhere('audit.type::text ILIKE :search', { search: searchTerm })
+            .orWhere('actor.name ILIKE :search', { search: searchTerm })
+            .orWhere('actor.email ILIKE :search', { search: searchTerm })
+            .orWhere('audit.entity ILIKE :search', { search: searchTerm })
+            .orWhere('CAST(audit.new_value AS text) ILIKE :search', { search: searchTerm })
+            .orWhere('CAST(audit.old_value AS text) ILIKE :search', { search: searchTerm });
+        }),
+      );
     }
 
     if (params.startDate) {
