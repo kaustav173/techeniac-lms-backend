@@ -31,15 +31,72 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
       const result = userQuerySchema.safeParse({ withoutActiveBatch: 'invalid' });
       assert.strictEqual(result.success, false);
     });
+
+    void it('parses single valid UUID mentorId', () => {
+      const parsed = userQuerySchema.parse({ mentorId: '11111111-1111-1111-1111-111111111111' });
+      assert.strictEqual(parsed.mentorId, '11111111-1111-1111-1111-111111111111');
+    });
+
+    void it('parses comma-separated UUIDs mentorId and normalizes whitespace', () => {
+      const parsed = userQuerySchema.parse({
+        mentorId: '11111111-1111-1111-1111-111111111111,  22222222-2222-2222-2222-222222222222  ',
+      });
+      assert.strictEqual(
+        parsed.mentorId,
+        '11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222',
+      );
+    });
+
+    void it('parses array of UUID strings mentorId into comma-separated string', () => {
+      const parsed = userQuerySchema.parse({
+        mentorId: [
+          '11111111-1111-1111-1111-111111111111',
+          '22222222-2222-2222-2222-222222222222',
+        ] as unknown as string,
+      });
+      assert.strictEqual(
+        parsed.mentorId,
+        '11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222',
+      );
+    });
+
+    void it('converts empty string mentorId to undefined', () => {
+      const parsed = userQuerySchema.parse({ mentorId: '   ' });
+      assert.strictEqual(parsed.mentorId, undefined);
+    });
+
+    void it('converts empty array mentorId to undefined', () => {
+      const parsed = userQuerySchema.parse({ mentorId: [] as unknown as string });
+      assert.strictEqual(parsed.mentorId, undefined);
+    });
+
+    void it('leaves mentorId undefined when omitted', () => {
+      const parsed = userQuerySchema.parse({});
+      assert.strictEqual(parsed.mentorId, undefined);
+    });
+
+    void it('rejects invalid UUID in mentorId', () => {
+      const result = userQuerySchema.safeParse({ mentorId: 'not-a-uuid' });
+      assert.strictEqual(result.success, false);
+    });
+
+    void it('rejects comma-separated list containing any invalid UUID', () => {
+      const result = userQuerySchema.safeParse({
+        mentorId: '11111111-1111-1111-1111-111111111111,invalid-uuid',
+      });
+      assert.strictEqual(result.success, false);
+    });
   });
 
   void describe('UserRepository.findAll Query Construction', () => {
     function createMockQueryBuilder() {
       const andWhereClauses: string[] = [];
+      const capturedParams: Record<string, unknown>[] = [];
       const qb = {
         where: () => qb,
-        andWhere: (clause: string) => {
+        andWhere: (clause: string, params?: unknown) => {
           andWhereClauses.push(clause);
+          if (params) capturedParams.push(params as Record<string, unknown>);
           return qb;
         },
         orderBy: () => qb,
@@ -47,7 +104,7 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
         take: () => qb,
         getManyAndCount: () => Promise.resolve([[], 0] as [User[], number]),
       };
-      return { qb: qb as unknown as SelectQueryBuilder<User>, andWhereClauses };
+      return { qb: qb as unknown as SelectQueryBuilder<User>, andWhereClauses, capturedParams };
     }
 
     void it('appends NOT EXISTS when withoutActiveBatch is true', async () => {
@@ -130,6 +187,84 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
 
       const hasBatchCheck = andWhereClauses.some((c) => c.includes('batch_members bm'));
       assert.strictEqual(hasBatchCheck, false);
+    });
+
+    void it('appends EXISTS with single mentorId = :mentorId when 1 mentor is passed', async () => {
+      const repo = new UserRepository();
+      const { qb, andWhereClauses, capturedParams } = createMockQueryBuilder();
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => qb,
+        }),
+      } as unknown as EntityManager;
+
+      await repo.findAll(
+        { page: 1, limit: 10, mentorId: '11111111-1111-1111-1111-111111111111' },
+        mockManager,
+      );
+
+      const hasSingleMentorClause = andWhereClauses.some(
+        (c) =>
+          c.includes('EXISTS') &&
+          c.includes('mentor_mentees mm') &&
+          c.includes('mm.mentor_id = :mentorId'),
+      );
+      assert.strictEqual(hasSingleMentorClause, true);
+      assert.deepStrictEqual(
+        capturedParams.find((p) => 'mentorId' in p),
+        { mentorId: '11111111-1111-1111-1111-111111111111' },
+      );
+    });
+
+    void it('appends EXISTS with IN (:...mentorIds) providing OR semantics when multiple mentors are passed', async () => {
+      const repo = new UserRepository();
+      const { qb, andWhereClauses, capturedParams } = createMockQueryBuilder();
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => qb,
+        }),
+      } as unknown as EntityManager;
+
+      await repo.findAll(
+        {
+          page: 1,
+          limit: 10,
+          mentorId: '11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222',
+        },
+        mockManager,
+      );
+
+      const hasMultiMentorClause = andWhereClauses.some(
+        (c) =>
+          c.includes('EXISTS') &&
+          c.includes('mentor_mentees mm') &&
+          c.includes('mm.mentor_id IN (:...mentorIds)'),
+      );
+      assert.strictEqual(hasMultiMentorClause, true);
+      assert.deepStrictEqual(
+        capturedParams.find((p) => 'mentorIds' in p),
+        {
+          mentorIds: [
+            '11111111-1111-1111-1111-111111111111',
+            '22222222-2222-2222-2222-222222222222',
+          ],
+        },
+      );
+    });
+
+    void it('does not append mentor EXISTS clause when mentorId is omitted', async () => {
+      const repo = new UserRepository();
+      const { qb, andWhereClauses } = createMockQueryBuilder();
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => qb,
+        }),
+      } as unknown as EntityManager;
+
+      await repo.findAll({ page: 1, limit: 10 }, mockManager);
+
+      const hasMentorClause = andWhereClauses.some((c) => c.includes('mentor_mentees mm'));
+      assert.strictEqual(hasMentorClause, false);
     });
   });
 });

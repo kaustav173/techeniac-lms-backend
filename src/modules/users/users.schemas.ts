@@ -36,18 +36,37 @@ export const userQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   batchId: z.string().uuid('Invalid batch ID').optional(),
   mentorId: z
-    .string()
-    .trim()
-    .refine(
+    .preprocess(
       (val) => {
-        const ids = val
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        return ids.length > 0 && ids.every((id) => uuidRegex.test(id));
+        if (Array.isArray(val)) {
+          const filtered = val.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
+          return filtered.length > 0 ? filtered.join(',') : undefined;
+        }
+        if (typeof val === 'string') {
+          const trimmed = val.trim();
+          if (!trimmed) return undefined;
+          return trimmed
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .join(',');
+        }
+        return val;
       },
-      { message: 'Invalid mentor ID format. Expected UUID or comma-separated UUIDs' },
+      z
+        .string()
+        .refine(
+          (val) => {
+            const ids = val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            return ids.length > 0 && ids.every((id) => uuidRegex.test(id));
+          },
+          { message: 'Invalid mentor ID format. Expected UUID or comma-separated UUIDs' },
+        )
+        .optional(),
     )
     .optional(),
   withoutActiveBatch: z
