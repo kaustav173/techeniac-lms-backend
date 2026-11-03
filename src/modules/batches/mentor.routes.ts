@@ -40,6 +40,7 @@ mentorRouter.get('/batches/:id', validate(getBatchByIdSchema), batchController.g
 
 // Mentees
 mentorRouter.get('/my-mentees', validate(mentorQuerySchema), batchController.getMentorMentees);
+mentorRouter.get('/mentees', validate(mentorQuerySchema), batchController.getMentorMentees);
 
 // Reviews (renamed/aliased from submissions)
 mentorRouter.get('/reviews', validate(submissionQueueQuerySchema), (req, res) =>

@@ -1,11 +1,12 @@
 import type { AuthenticatedUser } from '../../core/auth';
 import { ForbiddenError } from '../../core/errors';
-import { BatchMemberRole, BatchRepository, batchRepository } from '../batches';
-// eslint-disable-next-line architecture/cross-module-index-imports -- isolate repository import to eliminate circular barrel evaluation
 import {
+  BatchMemberRole,
+  BatchRepository,
+  batchRepository,
   type MentorMenteeRepository,
   mentorMenteeRepository,
-} from '../batches/mentor-mentee.repository';
+} from '../batches';
 import { UserRole } from '../users';
 
 export interface PerformanceScopeFilter {

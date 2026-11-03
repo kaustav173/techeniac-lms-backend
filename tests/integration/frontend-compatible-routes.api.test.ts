@@ -219,7 +219,7 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
       assert.equal(json.data.assignedBatchesCount, 1);
     });
 
-    void it('serves my-mentees at /mentor/my-mentees and returns 404 for removed /mentor/mentees', async () => {
+    void it('serves my-mentees at /mentor/my-mentees and aliases /mentor/mentees', async () => {
       const res = await fetch(`${baseUrl}/mentor/my-mentees`, {
         headers: { Authorization: `Bearer ${tokenMentor}` },
       });
@@ -228,10 +228,16 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
       assert.equal(json.success, true);
       assert.equal(Array.isArray(json.data.mentees), true);
 
-      const resOld = await fetch(`${baseUrl}/mentor/mentees`, {
+      const resAlias = await fetch(`${baseUrl}/mentor/mentees`, {
         headers: { Authorization: `Bearer ${tokenMentor}` },
       });
-      assert.equal(resOld.status, 404);
+      assert.equal(resAlias.status, 200);
+      const jsonAlias = (await resAlias.json()) as {
+        success: boolean;
+        data: { mentees: unknown[] };
+      };
+      assert.equal(jsonAlias.success, true);
+      assert.equal(Array.isArray(jsonAlias.data.mentees), true);
     });
 
     void it('serves reviews queue at /mentor/reviews and /reviews/queue', async () => {
