@@ -2,7 +2,7 @@ import { type JobsOptions, Queue } from 'bullmq';
 
 import { logger } from '../core/logging';
 import type { EmailJobData } from './email.types';
-import { redisConnection } from './redis-connection';
+import { producerRedisConnection } from './redis-connection';
 
 export const EMAIL_QUEUE_NAME = 'email-queue';
 
@@ -26,7 +26,7 @@ export function initEmailQueue(existingQueue?: Queue<EmailJobData>): Queue<Email
 
   if (!emailQueueInstance) {
     emailQueueInstance = new Queue<EmailJobData>(EMAIL_QUEUE_NAME, {
-      connection: redisConnection,
+      connection: producerRedisConnection,
       defaultJobOptions: DEFAULT_EMAIL_JOB_OPTS,
     });
   }
