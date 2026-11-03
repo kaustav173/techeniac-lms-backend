@@ -333,6 +333,7 @@ export class EmailService {
           text,
           html,
           contextName: 'Password reset',
+          rethrowError: true,
           metadata: {},
         });
         if (credentialKey) {
@@ -579,7 +580,11 @@ export class EmailService {
     logger.warn(
       'BullMQ email queue unavailable; falling back to direct dispatch for password reset',
     );
-    await this.dispatchDirectly({ type: 'PASSWORD_RESET', payload: options });
+    try {
+      await this.dispatchDirectly({ type: 'PASSWORD_RESET', payload: options });
+    } catch (error) {
+      logger.error({ err: error }, 'Direct fallback password reset email dispatch failed');
+    }
   }
 
   public async sendInviteEmail(options: SendInviteEmailOptions): Promise<void> {

@@ -160,4 +160,82 @@ void describe('Email BullMQ Integration Tests', () => {
     assert.equal(enqueuedJobs[1].data.type, 'COURSE_ALLOCATED');
     assert.equal(dispatchedDirectly.length, 0);
   });
+
+  void it('preserves PASSWORD_RESET credential on send failure and deletes it on success', async () => {
+    const credentialKey = 'test-cred-uuid-123';
+    inMemoryStore.set(`email:cred:${credentialKey}`, 'secret-reset-token');
+
+    let simulateFailure = true;
+    const origDispatchMail = (emailService as unknown as { dispatchMail: unknown })['dispatchMail'];
+    (emailService as unknown as { dispatchMail: (options: unknown) => Promise<void> })[
+      'dispatchMail'
+    ] = () => {
+      if (simulateFailure) {
+        return Promise.reject(new Error('SMTP transient failure'));
+      }
+      return Promise.resolve();
+    };
+
+    try {
+      // First attempt: delivery fails, should rethrow and PRESERVE the credential in Redis
+      await assert.rejects(
+        async () => {
+          await origDispatchDirectly({
+            type: 'PASSWORD_RESET',
+            payload: {
+              to: 'user@example.com',
+              name: 'Test User',
+              credentialKey,
+            },
+          });
+        },
+        {
+          name: 'Error',
+          message: 'SMTP transient failure',
+        },
+      );
+
+      // Verify credential was NOT deleted
+      assert.equal(
+        inMemoryStore.get(`email:cred:${credentialKey}`),
+        'secret-reset-token',
+        'Credential must survive send failure to allow BullMQ/admin retry',
+      );
+
+      // Second attempt (retry): delivery succeeds
+      simulateFailure = false;
+      await origDispatchDirectly({
+        type: 'PASSWORD_RESET',
+        payload: {
+          to: 'user@example.com',
+          name: 'Test User',
+          credentialKey,
+        },
+      });
+
+      // Verify credential was now deleted after successful dispatch
+      assert.equal(
+        inMemoryStore.get(`email:cred:${credentialKey}`),
+        undefined,
+        'Credential must be deleted after successful delivery',
+      );
+    } finally {
+      (emailService as unknown as { dispatchMail: unknown })['dispatchMail'] = origDispatchMail;
+    }
+  });
+
+  void it('suppresses error in sendPasswordResetEmail when direct fallback fails', async () => {
+    await closeEmailQueue();
+
+    emailService.dispatchDirectly = () => Promise.reject(new Error('Direct fallback failure'));
+
+    // Should not throw
+    await emailService.sendPasswordResetEmail({
+      to: 'fallback@example.com',
+      name: 'Fallback User',
+      resetToken: 'test-token',
+    });
+
+    assert.ok(true, 'Suppressed direct fallback error');
+  });
 });
