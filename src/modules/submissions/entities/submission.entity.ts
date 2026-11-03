@@ -5,12 +5,9 @@ import { CourseAllocation } from '../../allocations';
 import { Batch } from '../../batches';
 import { Assignment } from '../../courses';
 import { User } from '../../users';
+import { SubmissionStatus } from './submission.enums';
 
-export enum SubmissionStatus {
-  SUBMITTED = 'SUBMITTED',
-  RESUBMIT_REQUESTED = 'RESUBMIT_REQUESTED',
-  GRADED = 'GRADED',
-}
+export { SubmissionStatus };
 
 export interface SubmissionData {
   pdfUrl?: string | null;

@@ -17,10 +17,21 @@ export interface PerformanceScopeFilter {
 }
 
 export class PerformancePolicy {
-  constructor(
-    private readonly batchRepo: BatchRepository = batchRepository,
-    private readonly mentorMenteeRepo: MentorMenteeRepository = mentorMenteeRepository,
-  ) {}
+  private readonly _batchRepo?: BatchRepository;
+  private readonly _mentorMenteeRepo?: MentorMenteeRepository;
+
+  constructor(batchRepo?: BatchRepository, mentorMenteeRepo?: MentorMenteeRepository) {
+    this._batchRepo = batchRepo;
+    this._mentorMenteeRepo = mentorMenteeRepo;
+  }
+
+  private get batchRepo(): BatchRepository {
+    return this._batchRepo ?? batchRepository;
+  }
+
+  private get mentorMenteeRepo(): MentorMenteeRepository {
+    return this._mentorMenteeRepo ?? mentorMenteeRepository;
+  }
 
   /**
    * Asserts whether an actor can view the performance dashboard or export performance data,

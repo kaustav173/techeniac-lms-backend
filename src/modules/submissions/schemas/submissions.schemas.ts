@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { SubmissionStatus } from '../entities/submission.entity';
+import { SubmissionStatus } from '../entities/submission.enums';
 
 export const ASSIGNMENT_DERIVED_STATUSES = [
   'PENDING',
