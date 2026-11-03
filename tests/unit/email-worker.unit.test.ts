@@ -43,6 +43,22 @@ void describe('Email Worker Unit Tests', () => {
     try {
       await processEmailJob(mockJob);
       assert.deepEqual(dispatchedJob, mockJob.data);
+
+      const mockJobWithKey = {
+        id: 'job-email-test-2',
+        data: {
+          type: 'INVITE',
+          payload: {
+            to: 'invited@example.com',
+            name: 'Invited Tester',
+            role: 'MENTEE',
+            credentialKey: 'key-123',
+          },
+        },
+      } as unknown as Job<EmailJobData>;
+
+      await processEmailJob(mockJobWithKey);
+      assert.deepEqual(dispatchedJob, mockJobWithKey.data);
     } finally {
       if (originalDispatch) {
         emailService.dispatchDirectly = originalDispatch;
