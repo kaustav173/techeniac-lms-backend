@@ -13,6 +13,8 @@ export interface CreateAuditLogData {
   action: AuditAction | string;
   oldValue?: Record<string, unknown> | null;
   newValue?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+  country?: string | null;
 }
 
 export class AuditRepository {
@@ -31,6 +33,8 @@ export class AuditRepository {
       action: data.action,
       oldValue: data.oldValue ?? null,
       newValue: data.newValue ?? null,
+      ipAddress: data.ipAddress ?? null,
+      country: data.country ?? null,
     });
     return this.repo.save(log);
   }

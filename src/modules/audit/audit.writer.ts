@@ -1,3 +1,4 @@
+import { getRequestContext } from '../../core/http';
 import { logger } from '../../core/logging';
 import { auditRepository, type CreateAuditLogData } from './audit.repository';
 import { AuditLog } from './entities/audit-log.entity';
@@ -11,7 +12,13 @@ export type LogAuditParams = CreateAuditLogData;
  */
 export async function logAudit(params: LogAuditParams): Promise<AuditLog | null> {
   try {
-    return await auditRepository.create(params);
+    const ctx = getRequestContext();
+    const resolvedData: CreateAuditLogData = {
+      ...params,
+      ipAddress: params.ipAddress !== undefined ? params.ipAddress : (ctx?.ipAddress ?? null),
+      country: params.country !== undefined ? params.country : (ctx?.country ?? null),
+    };
+    return await auditRepository.create(resolvedData);
   } catch (error) {
     logger.error(
       {

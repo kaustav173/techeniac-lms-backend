@@ -5,7 +5,12 @@ import { StatusCodes } from 'http-status-codes';
 
 import { env } from './core/config';
 import { healthRouter } from './core/health';
-import { corsMiddleware, errorMiddleware, notFoundMiddleware } from './core/http';
+import {
+  corsMiddleware,
+  errorMiddleware,
+  notFoundMiddleware,
+  requestContextMiddleware,
+} from './core/http';
 import { mountBullBoard } from './jobs';
 import { allocationsRouter, registerAllocationLifecycleListeners } from './modules/allocations';
 import { auditRouter } from './modules/audit';
@@ -40,6 +45,7 @@ export function createApp(): Express {
   app.use(cookieParser());
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(requestContextMiddleware);
 
   app.use('/health', healthRouter);
 
