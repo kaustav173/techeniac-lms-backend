@@ -11,10 +11,15 @@ import {
   initEmailQueue,
 } from '../../src/jobs/email.queue';
 import type { EmailJobData } from '../../src/jobs/email.types';
+import { producerRedisConnection } from '../../src/jobs/redis-connection';
 
 void describe('Email Queue Unit Tests', () => {
   void it('exports the correct queue name', () => {
     assert.equal(EMAIL_QUEUE_NAME, 'email-queue');
+  });
+
+  void it('exports producer connection with bounded retries for fail-fast behavior', () => {
+    assert.equal(producerRedisConnection.maxRetriesPerRequest, 2);
   });
 
   void it('returns false when enqueuing to uninitialized queue', async () => {

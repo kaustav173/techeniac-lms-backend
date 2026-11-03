@@ -4,7 +4,7 @@ import { logger } from '../core/logging';
 import { registerBullBoardQueue } from './bull-board';
 import { closeEmailQueue, initEmailQueue } from './email.queue';
 import { createEmailWorker } from './email.worker';
-import { redisConnection } from './redis-connection';
+import { closeRedisClient, producerRedisConnection } from './redis-connection';
 import { createTokenCleanupWorker, TOKEN_CLEANUP_QUEUE_NAME } from './token-cleanup.worker';
 
 export const TOKEN_CLEANUP_SCHEDULER_ID = 'hourly-token-cleanup';
@@ -22,7 +22,7 @@ export async function registerScheduledJobs(): Promise<void> {
     logger.info('Initialized BullMQ email worker and registered queue in Bull Board');
 
     tokenCleanupQueue = new Queue(TOKEN_CLEANUP_QUEUE_NAME, {
-      connection: redisConnection,
+      connection: producerRedisConnection,
     });
 
     // BullMQ v6 upsertJobScheduler: idempotent registration preventing duplicate schedules
@@ -73,4 +73,6 @@ export async function closeScheduledJobs(): Promise<void> {
     await tokenCleanupQueue.close();
     tokenCleanupQueue = null;
   }
+
+  await closeRedisClient();
 }

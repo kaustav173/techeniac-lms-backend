@@ -1,8 +1,13 @@
 import sgMail from '@sendgrid/mail';
 import nodemailer, { Transporter } from 'nodemailer';
 
-import { enqueueEmailJob } from '../../jobs/email.queue';
+import { enqueueEmailJob, getEmailQueue } from '../../jobs/email.queue';
 import type { EmailJobData } from '../../jobs/email.types';
+import {
+  deleteEmailCredential,
+  retrieveEmailCredential,
+  storeEmailCredential,
+} from '../../jobs/redis-connection';
 import { env } from '../config';
 import { logger } from '../logging';
 import {
@@ -23,7 +28,8 @@ import {
 export interface SendPasswordResetOptions {
   to: string;
   name?: string;
-  resetToken: string;
+  resetToken?: string;
+  credentialKey?: string;
 }
 
 export interface SendCourseAllocatedOptions {
@@ -47,8 +53,9 @@ export interface SendCourseDeadlineChangedOptions {
 export interface SendInviteEmailOptions {
   to: string;
   name: string;
-  temporaryPassword: string;
+  temporaryPassword?: string;
   role: string;
+  credentialKey?: string;
 }
 
 export interface SendMentorMappedOptions {
@@ -310,7 +317,14 @@ export class EmailService {
   public async dispatchDirectly(job: EmailJobData): Promise<void> {
     switch (job.type) {
       case 'PASSWORD_RESET': {
-        const { to, name, resetToken } = job.payload;
+        const { to, name, resetToken: rawToken, credentialKey } = job.payload;
+        let resetToken = rawToken;
+        if (!resetToken && credentialKey) {
+          resetToken = (await retrieveEmailCredential(credentialKey)) ?? undefined;
+        }
+        if (!resetToken) {
+          throw new Error('Missing password reset token for dispatch');
+        }
         const resetUrl = `${env.FRONTEND_URL}/reset-password?token=${encodeURIComponent(resetToken)}`;
         const { subject, text, html } = renderPasswordResetEmail({ name, resetUrl });
         await this.dispatchMail({
@@ -321,10 +335,20 @@ export class EmailService {
           contextName: 'Password reset',
           metadata: {},
         });
+        if (credentialKey) {
+          await deleteEmailCredential(credentialKey);
+        }
         break;
       }
       case 'INVITE': {
-        const { to, name, temporaryPassword, role } = job.payload;
+        const { to, name, temporaryPassword: rawPassword, role, credentialKey } = job.payload;
+        let temporaryPassword = rawPassword;
+        if (!temporaryPassword && credentialKey) {
+          temporaryPassword = (await retrieveEmailCredential(credentialKey)) ?? undefined;
+        }
+        if (!temporaryPassword) {
+          throw new Error('Missing temporary password for user invitation dispatch');
+        }
         const loginUrl = `${env.FRONTEND_URL}/login`;
         const { subject, text, html } = renderInviteEmail({
           name,
@@ -342,6 +366,9 @@ export class EmailService {
           rethrowError: true,
           metadata: { role },
         });
+        if (credentialKey) {
+          await deleteEmailCredential(credentialKey);
+        }
         break;
       }
       case 'MENTOR_MAPPED': {
@@ -526,11 +553,67 @@ export class EmailService {
   }
 
   public async sendPasswordResetEmail(options: SendPasswordResetOptions): Promise<void> {
-    await this.enqueueOrDispatch({ type: 'PASSWORD_RESET', payload: options });
+    const queue = getEmailQueue();
+    if (queue && options.resetToken) {
+      try {
+        const credentialKey = await storeEmailCredential(options.resetToken);
+        const enqueued = await enqueueEmailJob({
+          type: 'PASSWORD_RESET',
+          payload: {
+            to: options.to,
+            name: options.name,
+            credentialKey,
+          },
+        });
+        if (enqueued) {
+          return;
+        }
+      } catch (err) {
+        logger.warn(
+          { err },
+          'Failed to store reset token in credential store; falling back to direct dispatch',
+        );
+      }
+    }
+
+    logger.warn(
+      'BullMQ email queue unavailable; falling back to direct dispatch for password reset',
+    );
+    await this.dispatchDirectly({ type: 'PASSWORD_RESET', payload: options });
   }
 
   public async sendInviteEmail(options: SendInviteEmailOptions): Promise<void> {
-    await this.enqueueOrDispatch({ type: 'INVITE', payload: options });
+    const queue = getEmailQueue();
+    if (queue && options.temporaryPassword) {
+      try {
+        const credentialKey = await storeEmailCredential(options.temporaryPassword);
+        const enqueued = await enqueueEmailJob({
+          type: 'INVITE',
+          payload: {
+            to: options.to,
+            name: options.name,
+            role: options.role,
+            credentialKey,
+          },
+        });
+        if (enqueued) {
+          return;
+        }
+      } catch (err) {
+        logger.warn(
+          { err },
+          'Failed to store temporary password in credential store; falling back to direct dispatch',
+        );
+      }
+    }
+
+    logger.warn('BullMQ email queue unavailable; falling back to direct dispatch for user invite');
+    try {
+      await this.dispatchDirectly({ type: 'INVITE', payload: options });
+    } catch (error) {
+      logger.error({ err: error }, 'Direct fallback user invitation email dispatch failed');
+      throw error;
+    }
   }
 
   public async sendMentorMappedEmail(options: SendMentorMappedOptions): Promise<void> {
