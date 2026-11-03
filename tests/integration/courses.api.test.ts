@@ -235,7 +235,7 @@ void describe('Courses API Integration Tests', () => {
   });
 
   void describe('List Courses Defaults & Pagination (FR-6.6, M6-LIST-1, M6-SEARCH-1)', () => {
-    void it('applies default pagination limit=20, page=1 when called with no query params', async () => {
+    void it('applies default pagination limit=10, page=1 when called with no query params', async () => {
       const mockCourses: Course[] = [
         {
           id: courseId,
@@ -249,7 +249,7 @@ void describe('Courses API Integration Tests', () => {
 
       coursesRepository.listCourses = (opts) => {
         assert.equal(opts?.page, 1);
-        assert.equal(opts?.limit, 20);
+        assert.equal(opts?.limit, 10);
         assert.equal(opts?.sortBy, 'createdAt');
         assert.equal(opts?.sortOrder, 'desc');
         return Promise.resolve({ items: mockCourses, total: 1 });
@@ -271,7 +271,7 @@ void describe('Courses API Integration Tests', () => {
 
       assert.equal(data.success, true);
       assert.equal(data.meta?.page, 1);
-      assert.equal(data.meta?.limit, 20);
+      assert.equal(data.meta?.limit, 10);
       assert.equal(data.meta?.total, 1);
       assert.equal(Array.isArray(data.data), true);
       assert.equal(data.data?.length, 1);

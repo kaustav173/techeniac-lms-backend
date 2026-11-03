@@ -64,7 +64,7 @@ export class GradingService {
       const mappings = await gradingRepository.findActiveMappingsForMentor(actor.id);
       if (mappings.length === 0) {
         const page = query.page ?? 1;
-        const limit = query.limit ?? 20;
+        const limit = query.limit ?? 10;
         return {
           items: [],
           total: 0,

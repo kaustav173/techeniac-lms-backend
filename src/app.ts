@@ -14,7 +14,7 @@ import { authRouter } from './modules/auth';
 import { requireAuth, requireRole } from './modules/auth/auth.middleware';
 import { batchRouter, menteeRouter, mentorRouter } from './modules/batches';
 import { coursesRouter } from './modules/courses';
-import { dashboardRouter } from './modules/dashboard';
+import { adminRouter, dashboardRouter } from './modules/dashboard';
 import { meRouter, performanceRouter } from './modules/performance';
 import {
   progressRouter,
@@ -62,8 +62,10 @@ export function createApp(): Express {
   app.use('/api/v1/course-allocations', progressRouter);
   app.use('/api/v1/progress', progressTrackerRouter);
   app.use('/api/v1/batches', batchRouter);
+  app.use('/api/v1/admin', adminRouter);
   app.use('/api/v1/mentor', mentorRouter);
   app.use('/api/v1/mentee', menteeRouter);
+  app.use('/api/v1/reviews', submissionsRouter);
   app.use('/api/v1/submissions', submissionsRouter);
   app.use('/api/v1/dashboard', dashboardRouter);
   app.use('/api/v1/performance', performanceRouter);
