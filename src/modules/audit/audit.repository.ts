@@ -47,8 +47,17 @@ export class AuditRepository {
       .leftJoin('audit.actor', 'actor')
       .addSelect(['actor.id', 'actor.name', 'actor.email']);
 
-    if (params.type) {
-      qb.andWhere('audit.type = :type', { type: params.type });
+    const typesToFilter: AuditLogType[] = [];
+    if (params.types && Array.isArray(params.types) && params.types.length > 0) {
+      typesToFilter.push(...params.types);
+    } else if (params.type) {
+      typesToFilter.push(params.type);
+    }
+
+    if (typesToFilter.length === 1) {
+      qb.andWhere('audit.type = :type', { type: typesToFilter[0] });
+    } else if (typesToFilter.length > 1) {
+      qb.andWhere('audit.type IN (:...types)', { types: typesToFilter });
     }
 
     if (params.actorId) {

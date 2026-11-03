@@ -12,6 +12,17 @@ export const getAuditLogsSchema = z.object({
   query: z
     .object({
       type: auditTypeSchema.optional(),
+      types: z
+        .preprocess((val) => {
+          if (typeof val === 'string') {
+            return val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+          }
+          return val;
+        }, z.array(auditTypeSchema))
+        .optional(),
       actorId: z.string().uuid('Invalid actor ID format').optional(),
       entity: z.string().min(1).max(100).optional(),
       action: z.string().min(1).max(100).optional(),
