@@ -188,22 +188,13 @@ export class UserRepository {
     }
 
     if (params.mentorId) {
-      const mentorIds = params.mentorId
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (mentorIds.length === 1) {
-        query.andWhere(
-          `EXISTS (
-            SELECT 1 FROM mentor_mentees mm
-            WHERE mm.mentee_id = "user"."id"
-              AND mm.mentor_id = :mentorId
-              AND mm.is_active = true
-              AND mm.deleted_at IS NULL
-          )`,
-          { mentorId: mentorIds[0] },
-        );
-      } else if (mentorIds.length > 1) {
+      const mentorIds = Array.isArray(params.mentorId)
+        ? params.mentorId
+        : String(params.mentorId)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+      if (mentorIds.length > 0) {
         query.andWhere(
           `EXISTS (
             SELECT 1 FROM mentor_mentees mm

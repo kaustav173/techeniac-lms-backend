@@ -38,34 +38,22 @@ export const userQuerySchema = z.object({
   mentorId: z
     .preprocess(
       (val) => {
-        if (Array.isArray(val)) {
-          const filtered = val.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
-          return filtered.length > 0 ? filtered.join(',') : undefined;
-        }
         if (typeof val === 'string') {
-          const trimmed = val.trim();
-          if (!trimmed) return undefined;
-          return trimmed
+          const parts = val
             .split(',')
             .map((s) => s.trim())
-            .filter(Boolean)
-            .join(',');
+            .filter(Boolean);
+          return parts.length > 0 ? parts : undefined;
+        }
+        if (Array.isArray(val)) {
+          const parts = val.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
+          return parts.length > 0 ? parts : undefined;
         }
         return val;
       },
       z
-        .string()
-        .refine(
-          (val) => {
-            const ids = val
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean);
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-            return ids.length > 0 && ids.every((id) => uuidRegex.test(id));
-          },
-          { message: 'Invalid mentor ID format. Expected UUID or comma-separated UUIDs' },
-        )
+        .array(z.string().uuid('Invalid mentor ID format'))
+        .max(20, 'At most 20 mentor IDs may be filtered at once')
         .optional(),
     )
     .optional(),
