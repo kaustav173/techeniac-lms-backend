@@ -45,7 +45,7 @@ export class AuditRepository {
     const qb: SelectQueryBuilder<AuditLog> = this.repo
       .createQueryBuilder('audit')
       .leftJoin('audit.actor', 'actor')
-      .addSelect(['actor.id', 'actor.name', 'actor.email']);
+      .addSelect(['actor.id', 'actor.name', 'actor.email', 'actor.role']);
 
     const typesToFilter: AuditLogType[] = [];
     if (params.types && Array.isArray(params.types) && params.types.length > 0) {
