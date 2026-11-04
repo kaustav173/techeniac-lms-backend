@@ -84,7 +84,7 @@ export class CoursesRepository {
     limit?: number;
     search?: string;
     isActive?: boolean;
-    sortBy?: 'createdAt' | 'title' | 'updatedAt';
+    sortBy?: 'createdAt' | 'title' | 'updatedAt' | 'topics' | 'tasks';
     sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Course[]; total: number }> {
     const page = options?.page && options.page > 0 ? options.page : 1;
@@ -112,15 +112,38 @@ export class CoursesRepository {
       );
     }
 
-    const sortColumn =
-      sortBy === 'title'
-        ? 'course.title'
-        : sortBy === 'updatedAt'
-          ? 'course.updatedAt'
-          : 'course.createdAt';
-
     const safeSortOrder = (sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
-    qb.orderBy(sortColumn, safeSortOrder);
+
+    if (sortBy === 'topics') {
+      qb.addSelect(
+        (subQuery) =>
+          subQuery
+            .select('COUNT(t.id)', 'topic_count')
+            .from('topics', 't')
+            .where('t.course_id = course.id')
+            .andWhere('t.deleted_at IS NULL'),
+        'topic_count',
+      );
+      qb.orderBy('topic_count', safeSortOrder, 'NULLS LAST');
+    } else if (sortBy === 'tasks') {
+      qb.addSelect(
+        (subQuery) =>
+          subQuery
+            .select('COUNT(a.id)', 'assignment_count')
+            .from('assignments', 'a')
+            .where('a.course_id = course.id')
+            .andWhere('a.deleted_at IS NULL'),
+        'assignment_count',
+      );
+      qb.orderBy('assignment_count', safeSortOrder, 'NULLS LAST');
+    } else if (sortBy === 'title') {
+      qb.orderBy('LOWER(course.title)', safeSortOrder);
+    } else if (sortBy === 'updatedAt') {
+      qb.orderBy('course.updatedAt', safeSortOrder);
+    } else {
+      qb.orderBy('course.createdAt', safeSortOrder);
+    }
+
     qb.skip((page - 1) * limit).take(limit);
 
     const [items, total] = await qb.getManyAndCount();

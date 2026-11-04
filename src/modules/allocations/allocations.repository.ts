@@ -273,7 +273,25 @@ export class AllocationsRepository {
       );
     }
 
-    qb.orderBy('allocation.createdAt', 'DESC');
+    if (query.sortBy === 'course') {
+      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
+      qb.orderBy('LOWER(course.title)', safeSortOrder, 'NULLS LAST');
+    } else if (query.sortBy === 'mentee') {
+      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
+      qb.orderBy('LOWER(user.name)', safeSortOrder, 'NULLS LAST');
+    } else if (query.sortBy === 'batch') {
+      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
+      qb.orderBy('LOWER(batch.name)', safeSortOrder, 'NULLS LAST');
+    } else if (query.sortBy === 'startDate') {
+      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
+      qb.orderBy('allocation.startDate', safeSortOrder, 'NULLS LAST');
+    } else if (query.sortBy === 'dueDate') {
+      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
+      qb.orderBy('allocation.dueDate', safeSortOrder, 'NULLS LAST');
+    } else {
+      const safeSortOrder = (query.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
+      qb.orderBy('allocation.createdAt', safeSortOrder);
+    }
     qb.skip((query.page - 1) * query.limit);
     qb.take(query.limit);
 

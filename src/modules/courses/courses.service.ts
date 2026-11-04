@@ -150,7 +150,7 @@ export class CoursesService {
     limit?: number;
     search?: string;
     isActive?: boolean;
-    sortBy?: 'createdAt' | 'title' | 'updatedAt';
+    sortBy?: 'createdAt' | 'title' | 'updatedAt' | 'topics' | 'tasks';
     sortOrder?: 'asc' | 'desc';
   }) {
     return await coursesRepository.listCourses(options);

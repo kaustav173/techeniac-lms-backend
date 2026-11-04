@@ -68,7 +68,7 @@ export const listCoursesQuerySchema = z.object({
       .enum(['true', 'false', 'all'])
       .optional()
       .transform((val) => (val === undefined || val === 'all' ? undefined : val === 'true')),
-    sortBy: z.enum(['createdAt', 'title', 'updatedAt']).default('createdAt'),
+    sortBy: z.enum(['createdAt', 'title', 'updatedAt', 'topics', 'tasks']).default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
   }),
 });
