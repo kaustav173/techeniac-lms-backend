@@ -144,7 +144,7 @@ export const transferMenteeSchema = z.object({
 export const batchQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
     search: z.string().max(100).optional(),
     status: z
       .union([z.nativeEnum(BatchStatus), z.array(z.nativeEnum(BatchStatus)), z.string()])

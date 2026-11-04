@@ -65,7 +65,7 @@ export const createAllocationsSchema = z.object({
 export const listAllocationsQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
     courseId: z.string().uuid().optional(),
     batchId: z.string().uuid().optional(),
     menteeId: z.string().uuid().optional(),

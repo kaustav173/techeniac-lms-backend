@@ -52,12 +52,12 @@ void describe('Module 14: Audit Service Unit Tests (AUD-01 to AUD-05)', () => {
     auditService = new AuditService(mockRepository as AuditRepository);
   });
 
-  void it('returns audit logs and default pagination (page=1, limit=20)', async () => {
-    const result = await auditService.getAuditLogs({ page: 1, limit: 20 });
+  void it('returns audit logs and default pagination (page=1, limit=10)', async () => {
+    const result = await auditService.getAuditLogs({ page: 1 });
 
     assert.equal(result.items.length, 2);
     assert.equal(result.pagination.page, 1);
-    assert.equal(result.pagination.limit, 20);
+    assert.equal(result.pagination.limit, 10);
     assert.equal(result.pagination.total, 2);
     assert.equal(result.pagination.totalPages, 1);
   });

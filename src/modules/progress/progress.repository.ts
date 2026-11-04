@@ -288,6 +288,25 @@ export class ProgressRepository {
     const repo = manager ? manager.getRepository(CourseAllocation) : this.allocationRepo;
     await repo.update({ id: allocationId, deletedAt: IsNull() }, updates);
   }
+
+  async findOverdueTopics(
+    since: Date = new Date(Date.now() - 24 * 3600000),
+    now: Date = new Date(),
+    limit: number = 1000,
+  ): Promise<TopicProgress[]> {
+    return await this.repo
+      .createQueryBuilder('tp')
+      .where('tp.status IN (:...statuses)', {
+        statuses: [TopicProgressStatus.NOT_STARTED, TopicProgressStatus.IN_PROGRESS],
+      })
+      .andWhere('tp.deadline IS NOT NULL AND tp.deadline >= :since AND tp.deadline < :now', {
+        since,
+        now,
+      })
+      .andWhere('tp.deletedAt IS NULL')
+      .take(limit)
+      .getMany();
+  }
 }
 
 export const progressRepository = new ProgressRepository();

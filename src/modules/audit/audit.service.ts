@@ -22,7 +22,7 @@ export class AuditService {
 
   public async getAuditLogs(params: AuditQueryParams) {
     const page = Math.max(1, Number(params?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(params?.limit) || 20));
+    const limit = Math.max(1, Math.min(100, Number(params?.limit) || 10));
 
     const { items, total } = await this.repo.findWithFilters({
       ...params,

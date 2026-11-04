@@ -9,7 +9,11 @@ import { AuditType } from '../audit';
 import { BatchStatus } from '../batches';
 import { UserRole } from '../users';
 import { AllocationsPolicy, allocationsPolicy } from './allocations.policy';
-import { AllocationsRepository, allocationsRepository } from './allocations.repository';
+import {
+  AllocationsRepository,
+  allocationsRepository,
+  SCHEDULED_JOBS_BATCH_LIMIT,
+} from './allocations.repository';
 import { CourseAllocationStatus } from './entities/allocation.enums';
 import { AssignmentDueOverride } from './entities/assignment-due-override.entity';
 import { CourseAllocation } from './entities/course-allocation.entity';
@@ -827,6 +831,67 @@ export class AllocationsService {
     if ((payload.newRole as UserRole) !== UserRole.MENTEE) {
       await this.repo.closeAllocationsForRoleChange(payload.userId, payload.actorId);
     }
+  }
+
+  public async detectOverdueAllocations(
+    since?: Date,
+    now: Date = new Date(),
+  ): Promise<{ overdueAllocationsCount: number }> {
+    const overdueAllocations = await this.repo.findOverdueAllocations(since, now);
+
+    if (overdueAllocations.length >= SCHEDULED_JOBS_BATCH_LIMIT) {
+      logger.warn(
+        { count: overdueAllocations.length, limit: SCHEDULED_JOBS_BATCH_LIMIT },
+        'Overdue allocations query reached batch limit; remaining records will be evaluated on the next run',
+      );
+    }
+
+    for (const ca of overdueAllocations) {
+      eventBus.emitEvent('allocation.overdueDetected', {
+        allocationId: ca.id,
+        userId: ca.userId,
+        courseId: ca.courseId,
+        dueDate: ca.dueDate,
+      });
+    }
+
+    return {
+      overdueAllocationsCount: overdueAllocations.length,
+    };
+  }
+
+  public async processDeadlineReminders(
+    windowStart?: Date,
+    windowEnd?: Date,
+  ): Promise<{ reminderAllocationsCount: number }> {
+    const now = new Date();
+    const upcomingAllocations = await this.repo.findUpcomingDeadlines(windowStart, windowEnd);
+
+    if (upcomingAllocations.length >= SCHEDULED_JOBS_BATCH_LIMIT) {
+      logger.warn(
+        { count: upcomingAllocations.length, limit: SCHEDULED_JOBS_BATCH_LIMIT },
+        'Upcoming deadlines query reached batch limit; remaining records will be evaluated on the next run',
+      );
+    }
+
+    for (const ca of upcomingAllocations) {
+      const hoursRemaining = Math.max(
+        0,
+        Math.round((new Date(ca.dueDate).getTime() - now.getTime()) / 3600000),
+      );
+
+      eventBus.emitEvent('allocation.reminderDue', {
+        allocationId: ca.id,
+        userId: ca.userId,
+        courseId: ca.courseId,
+        dueDate: ca.dueDate,
+        hoursRemaining,
+      });
+    }
+
+    return {
+      reminderAllocationsCount: upcomingAllocations.length,
+    };
   }
 }
 

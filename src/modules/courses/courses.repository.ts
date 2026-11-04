@@ -88,7 +88,7 @@ export class CoursesRepository {
     sortOrder?: 'asc' | 'desc';
   }): Promise<{ items: Course[]; total: number }> {
     const page = options?.page && options.page > 0 ? options.page : 1;
-    const limit = options?.limit && options.limit > 0 ? options.limit : 20;
+    const limit = options?.limit && options.limit > 0 ? options.limit : 10;
     const sortBy = options?.sortBy ?? 'createdAt';
     const sortOrder = options?.sortOrder ?? 'desc';
 

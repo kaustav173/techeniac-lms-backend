@@ -35,7 +35,28 @@ export const userQuerySchema = z.object({
   status: z.enum(['active', 'inactive']).optional(),
   search: z.string().trim().max(100).optional(),
   batchId: z.string().uuid('Invalid batch ID').optional(),
-  mentorId: z.string().uuid('Invalid mentor ID').optional(),
+  mentorId: z
+    .preprocess(
+      (val) => {
+        if (typeof val === 'string') {
+          const parts = val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return parts.length > 0 ? parts : undefined;
+        }
+        if (Array.isArray(val)) {
+          const parts = val.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
+          return parts.length > 0 ? parts : undefined;
+        }
+        return val;
+      },
+      z
+        .array(z.string().uuid('Invalid mentor ID format'))
+        .max(20, 'At most 20 mentor IDs may be filtered at once')
+        .optional(),
+    )
+    .optional(),
   withoutActiveBatch: z
     .preprocess((val) => {
       if (typeof val === 'string') {
