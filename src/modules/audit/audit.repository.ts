@@ -77,13 +77,31 @@ export class AuditRepository {
       qb.andWhere(
         new Brackets((subQb) => {
           subQb
+            // 1. Activity (Action)
             .where('audit.action ILIKE :search', { search: searchTerm })
+            .orWhere("REPLACE(audit.action, '_', ' ') ILIKE :search", { search: searchTerm })
+            // 2. Type
             .orWhere('audit.type::text ILIKE :search', { search: searchTerm })
+            .orWhere("REPLACE(audit.type::text, '_', ' ') ILIKE :search", { search: searchTerm })
+            // 3. Actor (Name, Email, Role)
             .orWhere('actor.name ILIKE :search', { search: searchTerm })
             .orWhere('actor.email ILIKE :search', { search: searchTerm })
+            .orWhere("REPLACE(actor.role::text, '_', ' ') ILIKE :search", { search: searchTerm })
+            // 4. Target Entity (Entity name/type and display title)
             .orWhere('audit.entity ILIKE :search', { search: searchTerm })
-            .orWhere('CAST(audit.new_value AS text) ILIKE :search', { search: searchTerm })
-            .orWhere('CAST(audit.old_value AS text) ILIKE :search', { search: searchTerm });
+            .orWhere("REPLACE(audit.entity, '_', ' ') ILIKE :search", { search: searchTerm })
+            .orWhere("audit.new_value ->> 'name' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.new_value ->> 'title' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.new_value ->> 'batchName' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.new_value ->> 'courseTitle' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.new_value ->> 'assignmentTitle' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.new_value ->> 'menteeName' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.old_value ->> 'name' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.old_value ->> 'title' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.old_value ->> 'batchName' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.old_value ->> 'courseTitle' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.old_value ->> 'assignmentTitle' ILIKE :search", { search: searchTerm })
+            .orWhere("audit.old_value ->> 'menteeName' ILIKE :search", { search: searchTerm });
         }),
       );
     }
