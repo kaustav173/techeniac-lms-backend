@@ -98,7 +98,7 @@ export class BatchService {
   public async getBatches(params: BatchQueryParams) {
     const { items, total } = await this.batchRepo.findWithFilters(params);
     const page = params.page ?? 1;
-    const limit = params.limit ?? 20;
+    const limit = params.limit ?? 10;
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
@@ -777,7 +777,7 @@ export class BatchService {
   public async getBatchesForMentor(mentorId: string, params: BatchQueryParams) {
     const { items, total } = await this.batchRepo.findWithFilters(params, mentorId);
     const page = params.page ?? 1;
-    const limit = params.limit ?? 20;
+    const limit = params.limit ?? 10;
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {

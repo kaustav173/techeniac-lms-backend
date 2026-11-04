@@ -46,6 +46,28 @@ export interface BatchMemberTransferredEvent {
   actorId?: string;
 }
 
+export interface AllocationOverdueDetectedEvent {
+  allocationId: string;
+  userId: string;
+  courseId: string;
+  dueDate: Date;
+}
+
+export interface TopicOverdueDetectedEvent {
+  topicProgressId: string;
+  courseAllocationId: string;
+  topicId: string;
+  deadline: Date;
+}
+
+export interface AllocationReminderDueEvent {
+  allocationId: string;
+  userId: string;
+  courseId: string;
+  dueDate: Date;
+  hoursRemaining: number;
+}
+
 export type LifecycleEvents = {
   'course.topicsChanged': CourseTopicsChangedEvent;
   'allocation.created': AllocationCreatedEvent;
@@ -53,6 +75,9 @@ export type LifecycleEvents = {
   'user.roleChanged': UserRoleChangedEvent;
   'batch.memberJoined': BatchMemberJoinedEvent;
   'batch.memberTransferred': BatchMemberTransferredEvent;
+  'allocation.overdueDetected': AllocationOverdueDetectedEvent;
+  'topic.overdueDetected': TopicOverdueDetectedEvent;
+  'allocation.reminderDue': AllocationReminderDueEvent;
 };
 
 class LifecycleEventBus extends EventEmitter {

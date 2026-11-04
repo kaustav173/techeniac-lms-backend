@@ -3,7 +3,7 @@ import type { EntityManager } from 'typeorm';
 import type { AuthenticatedUser } from '../../core/auth';
 import { emailService } from '../../core/email';
 import { NotFoundError } from '../../core/errors';
-import { CourseTopicAction } from '../../core/lifecycle';
+import { CourseTopicAction, eventBus } from '../../core/lifecycle';
 import { logger } from '../../core/logging';
 import { CourseAllocation, CourseAllocationStatus } from '../allocations';
 import { BatchStatus, mentorMenteeRepository } from '../batches';
@@ -426,7 +426,7 @@ export class ProgressService {
 
     const isMentor = (actor.role as UserRole) === UserRole.MENTOR;
     const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const limit = query.limit ?? 10;
 
     const { allocations, total } = await this.repository.listTrackers({
       batchId: query.batchId,
@@ -612,6 +612,33 @@ export class ProgressService {
         '[ProgressService] Failed to send completion notification to mentor',
       );
     }
+  }
+
+  public async detectOverdueTopics(
+    since?: Date,
+    now: Date = new Date(),
+  ): Promise<{ overdueTopicsCount: number }> {
+    const overdueTopics = await this.repository.findOverdueTopics(since, now);
+
+    if (overdueTopics.length >= 1000) {
+      logger.warn(
+        { count: overdueTopics.length, limit: 1000 },
+        'Overdue topics query reached batch limit; remaining records will be evaluated on the next run',
+      );
+    }
+
+    for (const tp of overdueTopics) {
+      if (tp.deadline) {
+        eventBus.emitEvent('topic.overdueDetected', {
+          topicProgressId: tp.id,
+          courseAllocationId: tp.courseAllocationId,
+          topicId: tp.topicId,
+          deadline: tp.deadline,
+        });
+      }
+    }
+
+    return { overdueTopicsCount: overdueTopics.length };
   }
 }
 

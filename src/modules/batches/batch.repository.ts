@@ -196,7 +196,7 @@ export class BatchRepository {
     }
 
     const page = params.page ?? 1;
-    const limit = params.limit ?? 20;
+    const limit = params.limit ?? 10;
 
     qb.orderBy('batch.createdAt', 'DESC')
       .skip((page - 1) * limit)

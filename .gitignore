@@ -18,3 +18,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Planning scratch notes
+docs/superpowers/
+
