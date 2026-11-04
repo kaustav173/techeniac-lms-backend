@@ -78,11 +78,13 @@ void describe('Email BullMQ Integration Tests', () => {
     });
 
     assert.equal(enqueuedJobs.length, 1);
-    assert.equal(enqueuedJobs[0].name, 'PASSWORD_RESET');
-    assert.equal(enqueuedJobs[0].data.type, 'PASSWORD_RESET');
-    assert.equal(enqueuedJobs[0].data.payload.to, 'reset@example.com');
+    const firstJob = enqueuedJobs[0];
+    assert.ok(firstJob, 'Expected a job to be enqueued');
+    assert.equal(firstJob.name, 'PASSWORD_RESET');
+    assert.equal(firstJob.data.type, 'PASSWORD_RESET');
+    assert.equal(firstJob.data.payload.to, 'reset@example.com');
     // Ensure raw resetToken is scrubbed and replaced with credentialKey
-    const payload = enqueuedJobs[0].data.payload as { credentialKey?: string; resetToken?: string };
+    const payload = firstJob.data.payload as { credentialKey?: string; resetToken?: string };
     assert.ok(payload.credentialKey, 'Expected credentialKey to be present');
     assert.equal(payload.resetToken, undefined, 'Expected raw resetToken to be scrubbed from job');
     assert.equal(inMemoryStore.get(`email:cred:${payload.credentialKey}`), 'test-token-456');
@@ -105,8 +107,10 @@ void describe('Email BullMQ Integration Tests', () => {
     assert.equal(enqueuedJobs.length, 0);
     // Direct dispatch was invoked as fallback
     assert.equal(dispatchedDirectly.length, 1);
-    assert.equal(dispatchedDirectly[0].type, 'PASSWORD_RESET');
-    assert.equal(dispatchedDirectly[0].payload.to, 'fallback@example.com');
+    const directJob = dispatchedDirectly[0];
+    assert.ok(directJob, 'Expected fallback direct dispatch');
+    assert.equal(directJob.type, 'PASSWORD_RESET');
+    assert.equal(directJob.payload.to, 'fallback@example.com');
   });
 
   void it('routes multiple email types through the BullMQ queue and scrubs temporaryPassword', async () => {
@@ -137,11 +141,15 @@ void describe('Email BullMQ Integration Tests', () => {
     });
 
     assert.equal(enqueuedJobs.length, 2);
-    assert.equal(enqueuedJobs[0].name, 'INVITE');
-    assert.equal(enqueuedJobs[0].data.type, 'INVITE');
+    const inviteJob = enqueuedJobs[0];
+    const courseJob = enqueuedJobs[1];
+    assert.ok(inviteJob, 'Expected invite job to be enqueued');
+    assert.ok(courseJob, 'Expected course allocated job to be enqueued');
+    assert.equal(inviteJob.name, 'INVITE');
+    assert.equal(inviteJob.data.type, 'INVITE');
 
     // Ensure temporaryPassword is scrubbed and stored in credential store
-    const invitePayload = enqueuedJobs[0].data.payload as {
+    const invitePayload = inviteJob.data.payload as {
       credentialKey?: string;
       temporaryPassword?: string;
     };
@@ -156,8 +164,8 @@ void describe('Email BullMQ Integration Tests', () => {
       'TempPassword123!',
     );
 
-    assert.equal(enqueuedJobs[1].name, 'COURSE_ALLOCATED');
-    assert.equal(enqueuedJobs[1].data.type, 'COURSE_ALLOCATED');
+    assert.equal(courseJob.name, 'COURSE_ALLOCATED');
+    assert.equal(courseJob.data.type, 'COURSE_ALLOCATED');
     assert.equal(dispatchedDirectly.length, 0);
   });
 
