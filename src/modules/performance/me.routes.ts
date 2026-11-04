@@ -10,6 +10,20 @@ export const meRouter = Router();
 meRouter.use(requireAuth);
 
 meRouter.get(
+  '/my-performance',
+  validate(learningHistoryQuerySchema),
+  performanceController.getLearningHistory,
+);
+
+meRouter.get(
+  '/performance',
+  validate(learningHistoryQuerySchema),
+  performanceController.getLearningHistory,
+);
+
+meRouter.get('/', validate(learningHistoryQuerySchema), performanceController.getLearningHistory);
+
+meRouter.get(
   '/learning-history',
   validate(learningHistoryQuerySchema),
   performanceController.getLearningHistory,

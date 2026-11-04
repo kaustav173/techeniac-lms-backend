@@ -1231,7 +1231,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
     void it('validates trackerQuerySchema with defaults and pagination bounds', () => {
       const parsed = trackerQuerySchema.parse({});
       assert.equal(parsed.page, 1);
-      assert.equal(parsed.limit, 20);
+      assert.equal(parsed.limit, 10);
 
       const invalidLimit = trackerQuerySchema.safeParse({ limit: 500 });
       assert.equal(invalidLimit.success, false);

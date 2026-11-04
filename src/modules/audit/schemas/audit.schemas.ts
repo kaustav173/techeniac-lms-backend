@@ -23,7 +23,7 @@ export const getAuditLogsSchema = z.object({
         .int()
         .min(1, 'Limit must be at least 1')
         .max(100, 'Limit cannot exceed 100')
-        .default(20),
+        .default(10),
     })
     .refine(
       (data) => {
