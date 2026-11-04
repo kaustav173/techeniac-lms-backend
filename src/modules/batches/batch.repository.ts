@@ -198,21 +198,23 @@ export class BatchRepository {
     const page = params.page ?? 1;
     const limit = params.limit ?? 10;
 
-    const sortColumn =
-      params.sortBy === 'name'
-        ? 'batch.name'
-        : params.sortBy === 'code'
-          ? 'batch.code'
-          : params.sortBy === 'startDate'
-            ? 'batch.startDate'
-            : params.sortBy === 'endDate'
-              ? 'batch.endDate'
-              : 'batch.createdAt';
     const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
-    qb.orderBy(sortColumn, safeSortOrder, 'NULLS LAST')
-      .skip((page - 1) * limit)
-      .take(limit);
+    if (params.sortBy === 'name') {
+      qb.orderBy('LOWER(batch.name)', safeSortOrder, 'NULLS LAST');
+    } else if (params.sortBy === 'code') {
+      qb.orderBy('LOWER(batch.code)', safeSortOrder, 'NULLS LAST');
+    } else if (params.sortBy === 'status') {
+      qb.orderBy('batch.status', safeSortOrder, 'NULLS LAST');
+    } else if (params.sortBy === 'startDate') {
+      qb.orderBy('batch.startDate', safeSortOrder, 'NULLS LAST');
+    } else if (params.sortBy === 'endDate') {
+      qb.orderBy('batch.endDate', safeSortOrder, 'NULLS LAST');
+    } else {
+      qb.orderBy('batch.createdAt', safeSortOrder, 'NULLS LAST');
+    }
+
+    qb.skip((page - 1) * limit).take(limit);
 
     const [items, total] = await qb.getManyAndCount();
 

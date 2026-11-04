@@ -159,13 +159,34 @@ export class UserRepository {
     const query = this.getRepo(manager).createQueryBuilder('user').where('user.deleted_at IS NULL');
 
     if (params.role) {
-      query.andWhere('user.role = :role', { role: params.role });
+      if (Array.isArray(params.role)) {
+        if (params.role.length > 0) {
+          query.andWhere('user.role IN (:...roles)', { roles: params.role });
+        }
+      } else {
+        query.andWhere('user.role = :role', { role: params.role });
+      }
     }
 
     if (params.status) {
-      query.andWhere('user.is_active = :isActive', {
-        isActive: params.status === 'active',
-      });
+      const statuses = Array.isArray(params.status) ? params.status : [params.status];
+      const conditions: string[] = [];
+
+      if (statuses.includes('pending')) {
+        conditions.push('(user.must_change_password = true OR user.last_login_at IS NULL)');
+      }
+      if (statuses.includes('active')) {
+        conditions.push(
+          '(user.is_active = true AND user.must_change_password = false AND user.last_login_at IS NOT NULL)',
+        );
+      }
+      if (statuses.includes('inactive')) {
+        conditions.push('(user.is_active = false)');
+      }
+
+      if (conditions.length > 0) {
+        query.andWhere(`(${conditions.join(' OR ')})`);
+      }
     }
 
     if (params.search) {
@@ -228,19 +249,21 @@ export class UserRepository {
 
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(params.limit) || 10));
-
-    const sortColumn =
-      params.sortBy === 'name'
-        ? 'user.name'
-        : params.sortBy === 'email'
-          ? 'user.email'
-          : 'user.created_at';
     const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
-    query
-      .orderBy(sortColumn, safeSortOrder)
-      .skip((page - 1) * limit)
-      .take(limit);
+    if (params.sortBy === 'name') {
+      query.orderBy('LOWER(user.name)', safeSortOrder);
+    } else if (params.sortBy === 'email') {
+      query.orderBy('LOWER(user.email)', safeSortOrder);
+    } else if (params.sortBy === 'role') {
+      query.orderBy('user.role', safeSortOrder);
+    } else if (params.sortBy === 'status') {
+      query.orderBy('user.is_active', safeSortOrder);
+    } else {
+      query.orderBy('user.created_at', safeSortOrder);
+    }
+
+    query.skip((page - 1) * limit).take(limit);
 
     return await query.getManyAndCount();
   }

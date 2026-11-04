@@ -31,8 +31,42 @@ export const userIdParamsSchema = z.object({
 export const userQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
-  role: userRoleSchema.optional(),
-  status: z.enum(['active', 'inactive']).optional(),
+  role: z
+    .preprocess(
+      (val) => {
+        if (typeof val === 'string' && val.includes(',')) {
+          const parts = val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return parts.length > 0 ? parts : undefined;
+        }
+        return val;
+      },
+      z.union([userRoleSchema, z.array(userRoleSchema)]),
+    )
+    .optional(),
+  status: z
+    .preprocess(
+      (val) => {
+        if (typeof val === 'string' && val.includes(',')) {
+          const parts = val
+            .split(',')
+            .map((s) => s.trim().toLowerCase())
+            .filter(Boolean);
+          return parts.length > 0 ? parts : undefined;
+        }
+        if (typeof val === 'string') {
+          return val.toLowerCase();
+        }
+        return val;
+      },
+      z.union([
+        z.enum(['active', 'inactive', 'pending']),
+        z.array(z.enum(['active', 'inactive', 'pending'])),
+      ]),
+    )
+    .optional(),
   search: z.string().trim().max(100).optional(),
   batchId: z.string().uuid('Invalid batch ID').optional(),
   mentorId: z
@@ -66,7 +100,7 @@ export const userQuerySchema = z.object({
       return val;
     }, z.boolean())
     .optional(),
-  sortBy: z.enum(['name', 'email', 'createdAt']).optional(),
+  sortBy: z.enum(['name', 'email', 'role', 'status', 'createdAt']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
