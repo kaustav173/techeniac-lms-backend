@@ -198,7 +198,19 @@ export class BatchRepository {
     const page = params.page ?? 1;
     const limit = params.limit ?? 10;
 
-    qb.orderBy('batch.createdAt', 'DESC')
+    const sortColumn =
+      params.sortBy === 'name'
+        ? 'batch.name'
+        : params.sortBy === 'code'
+          ? 'batch.code'
+          : params.sortBy === 'startDate'
+            ? 'batch.startDate'
+            : params.sortBy === 'endDate'
+              ? 'batch.endDate'
+              : 'batch.createdAt';
+    const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
+
+    qb.orderBy(sortColumn, safeSortOrder, 'NULLS LAST')
       .skip((page - 1) * limit)
       .take(limit);
 

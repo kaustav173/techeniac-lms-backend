@@ -229,8 +229,16 @@ export class UserRepository {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(params.limit) || 10));
 
+    const sortColumn =
+      params.sortBy === 'name'
+        ? 'user.name'
+        : params.sortBy === 'email'
+          ? 'user.email'
+          : 'user.created_at';
+    const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
+
     query
-      .orderBy('user.created_at', 'DESC')
+      .orderBy(sortColumn, safeSortOrder)
       .skip((page - 1) * limit)
       .take(limit);
 
