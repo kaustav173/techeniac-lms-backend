@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 
 import { logAudit } from '../../src/core/audit';
+import { requestContextStorage } from '../../src/core/http/request-context.middleware';
 import {
   AuditLog,
   type AuditRepository,
@@ -160,6 +161,99 @@ void describe('Module 14: Audit Service Unit Tests (AUD-01 to AUD-05)', () => {
         action: 'LOGIN',
       });
       assert.equal(outcome, null);
+    } finally {
+      auditRepository.create = origCreate;
+    }
+  });
+
+  void it('logAudit falls through to request context when ipAddress and country are undefined', async () => {
+    const origCreate = auditRepository.create.bind(auditRepository);
+    let capturedData: unknown = null;
+    auditRepository.create = (data) => {
+      capturedData = data;
+      return Promise.resolve(createMockAuditLog({ id: 'audit-ctx-1' }));
+    };
+
+    try {
+      await requestContextStorage.run(
+        { ipAddress: '103.27.8.1', country: 'India (IN)' },
+        async () => {
+          await logAudit({
+            type: AuditType.AUTH,
+            entity: 'User',
+            action: 'LOGIN',
+          });
+        },
+      );
+
+      assert.deepEqual(capturedData, {
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGIN',
+        ipAddress: '103.27.8.1',
+        country: 'India (IN)',
+      });
+    } finally {
+      auditRepository.create = origCreate;
+    }
+  });
+
+  void it('logAudit respects explicit null ipAddress and country overriding request context', async () => {
+    const origCreate = auditRepository.create.bind(auditRepository);
+    let capturedData: unknown = null;
+    auditRepository.create = (data) => {
+      capturedData = data;
+      return Promise.resolve(createMockAuditLog({ id: 'audit-null-1' }));
+    };
+
+    try {
+      await requestContextStorage.run(
+        { ipAddress: '103.27.8.1', country: 'India (IN)' },
+        async () => {
+          await logAudit({
+            type: AuditType.AUTH,
+            entity: 'User',
+            action: 'LOGIN',
+            ipAddress: null,
+            country: null,
+          });
+        },
+      );
+
+      assert.deepEqual(capturedData, {
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGIN',
+        ipAddress: null,
+        country: null,
+      });
+    } finally {
+      auditRepository.create = origCreate;
+    }
+  });
+
+  void it('logAudit resolves ipAddress and country to null when no request context exists and undefined passed', async () => {
+    const origCreate = auditRepository.create.bind(auditRepository);
+    let capturedData: unknown = null;
+    auditRepository.create = (data) => {
+      capturedData = data;
+      return Promise.resolve(createMockAuditLog({ id: 'audit-no-ctx-1' }));
+    };
+
+    try {
+      await logAudit({
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGOUT',
+      });
+
+      assert.deepEqual(capturedData, {
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGOUT',
+        ipAddress: null,
+        country: null,
+      });
     } finally {
       auditRepository.create = origCreate;
     }
