@@ -1,3 +1,4 @@
+import type { Request, Response } from 'express';
 import { Router } from 'express';
 
 import { requireAuth, requireRole } from '../auth';
@@ -26,14 +27,22 @@ export const dashboardRouter = Router();
 // Authentication required for all dashboard routes
 dashboardRouter.use(requireAuth);
 
-// Main /dashboard root redirects to admin dashboard
-dashboardRouter.get('/', requireRole(UserRole.SUPER_ADMIN), (_req, res) => {
+const handleRoleDashboardRedirect = (req: Request, res: Response): void => {
+  const role = req.user?.role as UserRole | undefined;
+  if (role === UserRole.MENTOR) {
+    res.redirect('/api/v1/mentor/dashboard');
+    return;
+  }
+  if (role === UserRole.MENTEE) {
+    res.redirect('/api/v1/mentee/dashboard');
+    return;
+  }
   res.redirect('/api/v1/admin/dashboard');
-});
+};
 
-dashboardRouter.get('/dashboard', requireRole(UserRole.SUPER_ADMIN), (_req, res) => {
-  res.redirect('/api/v1/admin/dashboard');
-});
+// Generic dashboard root redirects dispatch by role
+dashboardRouter.get('/', handleRoleDashboardRedirect);
+dashboardRouter.get('/dashboard', handleRoleDashboardRedirect);
 
 dashboardRouter.get('/admin', requireRole(UserRole.SUPER_ADMIN), (_req, res) => {
   res.redirect('/api/v1/admin/dashboard');

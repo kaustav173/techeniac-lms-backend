@@ -29,6 +29,9 @@ mentorRouter.get('/', (_req, res) => {
   res.redirect('/api/v1/mentor/dashboard');
 });
 
+// Note: Handlers are wrapped in arrow functions to defer controller resolution
+// and prevent undefined evaluation during circular module loading between batches and imported modules.
+
 // Dashboard
 mentorRouter.get('/dashboard', (req, res, next) =>
   dashboardController.getMentorDashboard(req, res, next),

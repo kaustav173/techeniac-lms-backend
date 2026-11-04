@@ -21,7 +21,7 @@ import {
   progressTrackerRouter,
   registerProgressLifecycleListeners,
 } from './modules/progress';
-import { submissionsRouter } from './modules/submissions';
+import { reviewsRouter, submissionsRouter } from './modules/submissions';
 import { user360Router } from './modules/user-360';
 import { UserRole } from './modules/users';
 // eslint-disable-next-line architecture/cross-module-index-imports -- router mount isolated from barrel to eliminate circular dependency
@@ -65,7 +65,7 @@ export function createApp(): Express {
   app.use('/api/v1/admin', adminRouter);
   app.use('/api/v1/mentor', mentorRouter);
   app.use('/api/v1/mentee', menteeRouter);
-  app.use('/api/v1/reviews', submissionsRouter);
+  app.use('/api/v1/reviews', reviewsRouter);
   app.use('/api/v1/submissions', submissionsRouter);
   app.use('/api/v1/dashboard', dashboardRouter);
   app.use('/api/v1/performance', performanceRouter);

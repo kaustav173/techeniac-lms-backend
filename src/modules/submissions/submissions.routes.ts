@@ -55,6 +55,46 @@ submissionsRouter.post(
 );
 
 /* -------------------------------------------------------------------------- */
+/* Dedicated Reviews Router for Mentor / Super Admin (PRD M10 & Review Queue)  */
+/* -------------------------------------------------------------------------- */
+export const reviewsRouter = Router();
+
+reviewsRouter.use(requireAuth, gradingAuth);
+
+// Root /reviews or /reviews/queue provides the review queue
+reviewsRouter.get('/', validate(submissionQueueQuerySchema), gradingController.getSubmissionQueue);
+
+reviewsRouter.get(
+  '/queue',
+  validate(submissionQueueQuerySchema),
+  gradingController.getSubmissionQueue,
+);
+
+reviewsRouter.get(
+  '/:submissionId',
+  validate(submissionIdParamSchema),
+  gradingController.getReviewDetails,
+);
+
+reviewsRouter.get(
+  '/:submissionId/review',
+  validate(submissionIdParamSchema),
+  gradingController.getReviewDetails,
+);
+
+reviewsRouter.post(
+  '/:submissionId/grade',
+  validate(gradeSubmissionSchema),
+  gradingController.gradeSubmission,
+);
+
+reviewsRouter.post(
+  '/:submissionId/resubmit-request',
+  validate(requestResubmissionSchema),
+  gradingController.requestResubmission,
+);
+
+/* -------------------------------------------------------------------------- */
 /* Mentee Submissions Endpoints (PRD M9: FR-9.1 - FR-9.7)                     */
 /* -------------------------------------------------------------------------- */
 const menteeAuth = requireRole('MENTEE');

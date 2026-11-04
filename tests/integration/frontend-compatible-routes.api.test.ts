@@ -181,7 +181,7 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
       assert.equal(json.data.users.totalUsers, 10);
     });
 
-    void it('redirects /admin and /dashboard to /api/v1/admin/dashboard when / is given', async () => {
+    void it('redirects /admin and /dashboard according to role', async () => {
       const resAdmin = await fetch(`${baseUrl}/admin`, {
         headers: { Authorization: `Bearer ${tokenAdmin}` },
         redirect: 'manual',
@@ -189,12 +189,26 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
       assert.equal(resAdmin.status, 302);
       assert.equal(resAdmin.headers.get('location'), '/api/v1/admin/dashboard');
 
-      const resDashboard = await fetch(`${baseUrl}/dashboard`, {
+      const resDashboardAdmin = await fetch(`${baseUrl}/dashboard`, {
         headers: { Authorization: `Bearer ${tokenAdmin}` },
         redirect: 'manual',
       });
-      assert.equal(resDashboard.status, 302);
-      assert.equal(resDashboard.headers.get('location'), '/api/v1/admin/dashboard');
+      assert.equal(resDashboardAdmin.status, 302);
+      assert.equal(resDashboardAdmin.headers.get('location'), '/api/v1/admin/dashboard');
+
+      const resDashboardMentor = await fetch(`${baseUrl}/dashboard`, {
+        headers: { Authorization: `Bearer ${tokenMentor}` },
+        redirect: 'manual',
+      });
+      assert.equal(resDashboardMentor.status, 302);
+      assert.equal(resDashboardMentor.headers.get('location'), '/api/v1/mentor/dashboard');
+
+      const resDashboardMentee = await fetch(`${baseUrl}/dashboard`, {
+        headers: { Authorization: `Bearer ${tokenMentee}` },
+        redirect: 'manual',
+      });
+      assert.equal(resDashboardMentee.status, 302);
+      assert.equal(resDashboardMentee.headers.get('location'), '/api/v1/mentee/dashboard');
     });
   });
 
@@ -240,7 +254,7 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
       assert.equal(Array.isArray(jsonAlias.data.mentees), true);
     });
 
-    void it('serves reviews queue at /mentor/reviews and /reviews/queue', async () => {
+    void it('serves reviews queue at /mentor/reviews and /reviews/queue with strict role access', async () => {
       const resMentorReviews = await fetch(`${baseUrl}/mentor/reviews`, {
         headers: { Authorization: `Bearer ${tokenMentor}` },
       });
@@ -250,6 +264,19 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
         headers: { Authorization: `Bearer ${tokenMentor}` },
       });
       assert.equal(resReviewsQueue.status, 200);
+
+      // Mentee cannot access /reviews/queue (forbidden)
+      const resMenteeReviewsQueue = await fetch(`${baseUrl}/reviews/queue`, {
+        headers: { Authorization: `Bearer ${tokenMentee}` },
+      });
+      assert.equal(resMenteeReviewsQueue.status, 403);
+
+      // Mentee submission creation route is not mounted under /reviews
+      const resPostReviews = await fetch(`${baseUrl}/reviews`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tokenMentor}` },
+      });
+      assert.equal(resPostReviews.status, 404);
     });
 
     void it('serves mentees-performance and returns 404 for removed /mentor/performance', async () => {
