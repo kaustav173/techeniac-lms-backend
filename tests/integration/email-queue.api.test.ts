@@ -78,11 +78,13 @@ void describe('Email BullMQ Integration Tests', () => {
     });
 
     assert.equal(enqueuedJobs.length, 1);
-    assert.equal(enqueuedJobs[0].name, 'PASSWORD_RESET');
-    assert.equal(enqueuedJobs[0].data.type, 'PASSWORD_RESET');
-    assert.equal(enqueuedJobs[0].data.payload.to, 'reset@example.com');
+    const firstJob = enqueuedJobs[0];
+    assert.ok(firstJob, 'Expected a job to be enqueued');
+    assert.equal(firstJob.name, 'PASSWORD_RESET');
+    assert.equal(firstJob.data.type, 'PASSWORD_RESET');
+    assert.equal(firstJob.data.payload.to, 'reset@example.com');
     // Ensure raw resetToken is scrubbed and replaced with credentialKey
-    const payload = enqueuedJobs[0].data.payload as { credentialKey?: string; resetToken?: string };
+    const payload = firstJob.data.payload as { credentialKey?: string; resetToken?: string };
     assert.ok(payload.credentialKey, 'Expected credentialKey to be present');
     assert.equal(payload.resetToken, undefined, 'Expected raw resetToken to be scrubbed from job');
     assert.equal(inMemoryStore.get(`email:cred:${payload.credentialKey}`), 'test-token-456');
@@ -105,8 +107,10 @@ void describe('Email BullMQ Integration Tests', () => {
     assert.equal(enqueuedJobs.length, 0);
     // Direct dispatch was invoked as fallback
     assert.equal(dispatchedDirectly.length, 1);
-    assert.equal(dispatchedDirectly[0].type, 'PASSWORD_RESET');
-    assert.equal(dispatchedDirectly[0].payload.to, 'fallback@example.com');
+    const directJob = dispatchedDirectly[0];
+    assert.ok(directJob, 'Expected fallback direct dispatch');
+    assert.equal(directJob.type, 'PASSWORD_RESET');
+    assert.equal(directJob.payload.to, 'fallback@example.com');
   });
 
   void it('routes multiple email types through the BullMQ queue and scrubs temporaryPassword', async () => {
@@ -137,11 +141,15 @@ void describe('Email BullMQ Integration Tests', () => {
     });
 
     assert.equal(enqueuedJobs.length, 2);
-    assert.equal(enqueuedJobs[0].name, 'INVITE');
-    assert.equal(enqueuedJobs[0].data.type, 'INVITE');
+    const inviteJob = enqueuedJobs[0];
+    const courseJob = enqueuedJobs[1];
+    assert.ok(inviteJob, 'Expected invite job to be enqueued');
+    assert.ok(courseJob, 'Expected course allocated job to be enqueued');
+    assert.equal(inviteJob.name, 'INVITE');
+    assert.equal(inviteJob.data.type, 'INVITE');
 
     // Ensure temporaryPassword is scrubbed and stored in credential store
-    const invitePayload = enqueuedJobs[0].data.payload as {
+    const invitePayload = inviteJob.data.payload as {
       credentialKey?: string;
       temporaryPassword?: string;
     };
@@ -156,8 +164,86 @@ void describe('Email BullMQ Integration Tests', () => {
       'TempPassword123!',
     );
 
-    assert.equal(enqueuedJobs[1].name, 'COURSE_ALLOCATED');
-    assert.equal(enqueuedJobs[1].data.type, 'COURSE_ALLOCATED');
+    assert.equal(courseJob.name, 'COURSE_ALLOCATED');
+    assert.equal(courseJob.data.type, 'COURSE_ALLOCATED');
     assert.equal(dispatchedDirectly.length, 0);
+  });
+
+  void it('preserves PASSWORD_RESET credential on send failure and deletes it on success', async () => {
+    const credentialKey = 'test-cred-uuid-123';
+    inMemoryStore.set(`email:cred:${credentialKey}`, 'secret-reset-token');
+
+    let simulateFailure = true;
+    const origDispatchMail = (emailService as unknown as { dispatchMail: unknown })['dispatchMail'];
+    (emailService as unknown as { dispatchMail: (options: unknown) => Promise<void> })[
+      'dispatchMail'
+    ] = () => {
+      if (simulateFailure) {
+        return Promise.reject(new Error('SMTP transient failure'));
+      }
+      return Promise.resolve();
+    };
+
+    try {
+      // First attempt: delivery fails, should rethrow and PRESERVE the credential in Redis
+      await assert.rejects(
+        async () => {
+          await origDispatchDirectly({
+            type: 'PASSWORD_RESET',
+            payload: {
+              to: 'user@example.com',
+              name: 'Test User',
+              credentialKey,
+            },
+          });
+        },
+        {
+          name: 'Error',
+          message: 'SMTP transient failure',
+        },
+      );
+
+      // Verify credential was NOT deleted
+      assert.equal(
+        inMemoryStore.get(`email:cred:${credentialKey}`),
+        'secret-reset-token',
+        'Credential must survive send failure to allow BullMQ/admin retry',
+      );
+
+      // Second attempt (retry): delivery succeeds
+      simulateFailure = false;
+      await origDispatchDirectly({
+        type: 'PASSWORD_RESET',
+        payload: {
+          to: 'user@example.com',
+          name: 'Test User',
+          credentialKey,
+        },
+      });
+
+      // Verify credential was now deleted after successful dispatch
+      assert.equal(
+        inMemoryStore.get(`email:cred:${credentialKey}`),
+        undefined,
+        'Credential must be deleted after successful delivery',
+      );
+    } finally {
+      (emailService as unknown as { dispatchMail: unknown })['dispatchMail'] = origDispatchMail;
+    }
+  });
+
+  void it('suppresses error in sendPasswordResetEmail when direct fallback fails', async () => {
+    await closeEmailQueue();
+
+    emailService.dispatchDirectly = () => Promise.reject(new Error('Direct fallback failure'));
+
+    // Should not throw
+    await emailService.sendPasswordResetEmail({
+      to: 'fallback@example.com',
+      name: 'Fallback User',
+      resetToken: 'test-token',
+    });
+
+    assert.ok(true, 'Suppressed direct fallback error');
   });
 });

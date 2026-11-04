@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import type { ConnectionOptions } from 'bullmq';
+import type { ConnectionOptions, RedisOptions } from 'bullmq';
 import Redis from 'ioredis';
 
 import { env } from '../core/config';
@@ -15,7 +15,7 @@ export const redisConnection: ConnectionOptions = env.REDIS_URL
       maxRetriesPerRequest: null,
     };
 
-export const producerRedisConnection: ConnectionOptions = env.REDIS_URL
+export const producerRedisConnection: RedisOptions = env.REDIS_URL
   ? { url: env.REDIS_URL, maxRetriesPerRequest: 2 }
   : {
       host: env.REDIS_HOST,
