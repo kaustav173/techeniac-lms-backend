@@ -245,8 +245,8 @@ export class CoursesService {
       entity: 'Course',
       entityId: id,
       action: 'COURSE_STATUS_TOGGLED',
-      oldValue: { isActive: course.isActive },
-      newValue: { isActive },
+      oldValue: { title: course.title, isActive: course.isActive },
+      newValue: { title: course.title, isActive },
     });
 
     return updated;

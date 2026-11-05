@@ -48,4 +48,10 @@ export class AuditLog extends AuditableEntity {
 
   @Column({ name: 'new_value', type: 'jsonb', nullable: true })
   newValue!: Record<string, unknown> | null;
+
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
+  ipAddress!: string | null;
+
+  @Column({ name: 'country', type: 'varchar', length: 100, nullable: true })
+  country!: string | null;
 }

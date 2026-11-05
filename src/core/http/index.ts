@@ -9,5 +9,6 @@ export {
   refreshRateLimiter,
   verifyResetTokenRateLimiter,
 } from './rate-limiter';
+export { getRequestContext, requestContextMiddleware } from './request-context.middleware';
 export { validate } from './validation.middleware';
 export { StatusCodes } from 'http-status-codes';
