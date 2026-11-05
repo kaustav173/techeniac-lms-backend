@@ -411,7 +411,6 @@ export class SubmissionsService {
         assignmentId: assignment.id,
         assignmentTitle: assignment.title,
         userName: user.name,
-        userEmail: user.email,
         version: savedSubmission.version,
         isLate: savedSubmission.isLate,
       },
