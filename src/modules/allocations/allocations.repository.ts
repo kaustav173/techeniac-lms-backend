@@ -280,6 +280,7 @@ export class AllocationsRepository {
       started: 'allocation.startDate',
       due: 'allocation.dueDate',
       progress: 'allocation.progressPercent',
+      status: 'allocation.status',
       createdAt: 'allocation.createdAt',
     };
     const sortColumn = (query.sortBy && sortColumnMap[query.sortBy]) || 'allocation.createdAt';

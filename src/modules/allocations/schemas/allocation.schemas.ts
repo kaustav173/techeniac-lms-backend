@@ -84,7 +84,7 @@ export const listAllocationsQuerySchema = z.object({
     dueDateTo: z.string().optional(),
     search: z.string().trim().max(100).optional(),
     sortBy: z
-      .enum(['course', 'mentee', 'batch', 'started', 'due', 'progress', 'createdAt'])
+      .enum(['course', 'mentee', 'batch', 'started', 'due', 'progress', 'status', 'createdAt'])
       .optional(),
     sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional(),
   }),
