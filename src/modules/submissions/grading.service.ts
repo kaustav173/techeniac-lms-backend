@@ -208,6 +208,9 @@ export class GradingService {
         gradeLabel: computedGradeLabel,
         feedback: input.feedback ?? null,
         status: SubmissionStatus.GRADED,
+        studentName: safeAllocation.user?.name ?? null,
+        studentEmail: safeAllocation.user?.email ?? null,
+        assignmentTitle: safeSubmission.assignment?.title ?? null,
       },
     });
 
@@ -334,6 +337,9 @@ export class GradingService {
       newValue: {
         status: SubmissionStatus.RESUBMIT_REQUESTED,
         feedback: input.feedback,
+        studentName: safeAllocation.user?.name ?? null,
+        studentEmail: safeAllocation.user?.email ?? null,
+        assignmentTitle: safeSubmission.assignment?.title ?? null,
       },
     });
 

@@ -409,6 +409,9 @@ export class SubmissionsService {
       newValue: {
         courseAllocationId: alloc.allocationId,
         assignmentId: assignment.id,
+        assignmentTitle: assignment.title,
+        userName: user.name,
+        userEmail: user.email,
         version: savedSubmission.version,
         isLate: savedSubmission.isLate,
       },

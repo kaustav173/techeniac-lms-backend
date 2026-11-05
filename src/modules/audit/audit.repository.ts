@@ -1,6 +1,11 @@
-import { Brackets, DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { Brackets, DataSource, In, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { AppDataSource } from '../../core/db';
+import { CourseAllocation } from '../allocations';
+import { Batch } from '../batches';
+import { Assignment, Course } from '../courses';
+import { Submission } from '../submissions';
+import { User } from '../users';
 import { AuditAction, AuditLogType } from './entities/audit.enums';
 import { AuditLog } from './entities/audit-log.entity';
 import { AuditQueryParams } from './schemas/audit.schemas';
@@ -17,10 +22,27 @@ export interface CreateAuditLogData {
   country?: string | null;
 }
 
+export interface TargetEntitiesBatchResult {
+  allocations: Map<string, { courseTitle?: string; userName?: string }>;
+  submissions: Map<
+    string,
+    {
+      assignmentTitle?: string;
+      studentName?: string;
+      studentEmail?: string;
+      gradeLabel?: string;
+    }
+  >;
+  courses: Map<string, string>;
+  users: Map<string, { name: string; email: string }>;
+  batches: Map<string, string>;
+  assignments: Map<string, string>;
+}
+
 export class AuditRepository {
   private readonly repo: Repository<AuditLog>;
 
-  constructor(dataSource: DataSource = AppDataSource) {
+  constructor(private readonly dataSource: DataSource = AppDataSource) {
     this.repo = dataSource.getRepository(AuditLog);
   }
 
@@ -129,6 +151,118 @@ export class AuditRepository {
 
     const [items, total] = await qb.getManyAndCount();
     return { items, total };
+  }
+
+  public async findTargetEntitiesBatch(params: {
+    allocationIds: string[];
+    submissionIds: string[];
+    courseIds: string[];
+    userIds: string[];
+    batchIds: string[];
+    assignmentIds: string[];
+  }): Promise<TargetEntitiesBatchResult> {
+    const result: TargetEntitiesBatchResult = {
+      allocations: new Map(),
+      submissions: new Map(),
+      courses: new Map(),
+      users: new Map(),
+      batches: new Map(),
+      assignments: new Map(),
+    };
+
+    if (params.allocationIds.length > 0) {
+      try {
+        const allocations = await this.dataSource.getRepository(CourseAllocation).find({
+          where: { id: In(params.allocationIds) },
+          relations: ['course', 'user'],
+        });
+        for (const a of allocations) {
+          result.allocations.set(a.id, {
+            courseTitle: a.course?.title,
+            userName: a.user?.name,
+          });
+        }
+      } catch {
+        // ignore resolution error
+      }
+    }
+
+    if (params.submissionIds.length > 0) {
+      try {
+        const submissions = await this.dataSource.getRepository(Submission).find({
+          where: { id: In(params.submissionIds) },
+          relations: ['assignment', 'courseAllocation', 'courseAllocation.user'],
+        });
+        for (const s of submissions) {
+          result.submissions.set(s.id, {
+            assignmentTitle: s.assignment?.title,
+            studentName: s.courseAllocation?.user?.name,
+            studentEmail: s.courseAllocation?.user?.email,
+            gradeLabel: s.gradeLabel ?? undefined,
+          });
+        }
+      } catch {
+        // ignore resolution error
+      }
+    }
+
+    if (params.courseIds.length > 0) {
+      try {
+        const courses = await this.dataSource.getRepository(Course).find({
+          where: { id: In(params.courseIds) },
+          select: ['id', 'title'],
+        });
+        for (const c of courses) {
+          result.courses.set(c.id, c.title);
+        }
+      } catch {
+        // ignore resolution error
+      }
+    }
+
+    if (params.userIds.length > 0) {
+      try {
+        const users = await this.dataSource.getRepository(User).find({
+          where: { id: In(params.userIds) },
+          select: ['id', 'name', 'email'],
+        });
+        for (const u of users) {
+          result.users.set(u.id, { name: u.name, email: u.email });
+        }
+      } catch {
+        // ignore resolution error
+      }
+    }
+
+    if (params.batchIds.length > 0) {
+      try {
+        const batches = await this.dataSource.getRepository(Batch).find({
+          where: { id: In(params.batchIds) },
+          select: ['id', 'name'],
+        });
+        for (const b of batches) {
+          result.batches.set(b.id, b.name);
+        }
+      } catch {
+        // ignore resolution error
+      }
+    }
+
+    if (params.assignmentIds.length > 0) {
+      try {
+        const assignments = await this.dataSource.getRepository(Assignment).find({
+          where: { id: In(params.assignmentIds) },
+          select: ['id', 'title'],
+        });
+        for (const a of assignments) {
+          result.assignments.set(a.id, a.title);
+        }
+      } catch {
+        // ignore resolution error
+      }
+    }
+
+    return result;
   }
 }
 
