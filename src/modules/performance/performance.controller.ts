@@ -37,6 +37,7 @@ export class PerformanceController extends BaseController {
         data: {
           metrics: result.metrics,
           mentees: result.mentees,
+          pagination: result.pagination,
         },
         meta: result.pagination,
       });

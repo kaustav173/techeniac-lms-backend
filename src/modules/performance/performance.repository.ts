@@ -330,7 +330,11 @@ export class PerformanceRepository {
 
     const canPrePaginate =
       (!filter.gradeRange || filter.gradeRange === 'ALL') &&
-      (!filter.sortBy || filter.sortBy === 'name' || filter.sortBy === 'completionPercentage');
+      (!filter.sortBy ||
+        filter.sortBy === 'name' ||
+        filter.sortBy === 'completionPercentage' ||
+        filter.sortBy === 'batch' ||
+        filter.sortBy === 'courses');
 
     const order = filter.sortOrder === 'ASC' ? 1 : -1;
     const totalRaw = rawRows.length;
@@ -341,6 +345,14 @@ export class PerformanceRepository {
         targetRows.sort(
           (a, b) =>
             ((parseFloat(a.avg_progress ?? '0') || 0) - (parseFloat(b.avg_progress ?? '0') || 0)) *
+            order,
+        );
+      } else if (filter.sortBy === 'batch') {
+        targetRows.sort((a, b) => (a.batch_name ?? '').localeCompare(b.batch_name ?? '') * order);
+      } else if (filter.sortBy === 'courses') {
+        targetRows.sort(
+          (a, b) =>
+            (parseInt(a.assigned_courses_count, 10) - parseInt(b.assigned_courses_count, 10)) *
             order,
         );
       } else {
@@ -529,6 +541,12 @@ export class PerformanceRepository {
           return (a.onTimeRate - b.onTimeRate) * order;
         case 'overdueCount':
           return (a.overdueCount - b.overdueCount) * order;
+        case 'batch':
+          return (a.batchName ?? '').localeCompare(b.batchName ?? '') * order;
+        case 'courses':
+          return (a.assignedCoursesCount - b.assignedCoursesCount) * order;
+        case 'grade':
+          return (a.latestGrade ?? '').localeCompare(b.latestGrade ?? '') * order;
         case 'name':
         default:
           return a.menteeName.localeCompare(b.menteeName) * order;
