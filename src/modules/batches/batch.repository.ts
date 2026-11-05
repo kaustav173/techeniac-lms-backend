@@ -207,17 +207,11 @@ export class BatchRepository {
     if (params.sortBy === 'name') {
       qb.orderBy('LOWER(batch.name)', safeSortOrder, 'NULLS LAST');
     } else if (params.sortBy === 'members') {
-      qb.addSelect(
-        (subQuery) =>
-          subQuery
-            .select('COUNT(bm.id)', 'member_count')
-            .from('batch_members', 'bm')
-            .where('bm.batch_id = batch.id')
-            .andWhere('bm.is_active = true')
-            .andWhere('bm.deleted_at IS NULL'),
-        'member_count',
+      qb.orderBy(
+        `(SELECT COUNT(bm.id) FROM batch_members bm WHERE bm.batch_id = batch.id AND bm.is_active = true AND bm.deleted_at IS NULL)`,
+        safeSortOrder,
+        'NULLS LAST',
       );
-      qb.orderBy('member_count', safeSortOrder, 'NULLS LAST');
     } else if (params.sortBy === 'code') {
       qb.orderBy('LOWER(batch.code)', safeSortOrder, 'NULLS LAST');
     } else if (params.sortBy === 'status') {
