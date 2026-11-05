@@ -232,7 +232,12 @@ export class GradingRepository {
     } else if (query.sort === 'oldest') {
       direction = 'ASC';
     }
-    qb.orderBy('sub.submittedAt', direction);
+
+    if (query.sortBy === 'mentee' || query.sortBy === 'name') {
+      qb.orderBy('mentee.name', direction).addOrderBy('sub.submittedAt', 'DESC');
+    } else {
+      qb.orderBy('sub.submittedAt', direction);
+    }
 
     // Server-side pagination (FR-10.7, REV-15)
     const page = query.page ?? 1;

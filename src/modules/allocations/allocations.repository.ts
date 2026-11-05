@@ -273,7 +273,21 @@ export class AllocationsRepository {
       );
     }
 
-    qb.orderBy('allocation.createdAt', 'DESC');
+    const sortColumnMap: Record<string, string> = {
+      course: 'course.title',
+      mentee: 'user.name',
+      batch: 'batch.name',
+      started: 'allocation.startDate',
+      due: 'allocation.dueDate',
+      progress: 'allocation.progressPercent',
+      createdAt: 'allocation.createdAt',
+    };
+    const sortColumn = (query.sortBy && sortColumnMap[query.sortBy]) || 'allocation.createdAt';
+    const sortDir = (query.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
+    qb.orderBy(sortColumn, sortDir);
+    if (sortColumn !== 'allocation.createdAt') {
+      qb.addOrderBy('allocation.createdAt', 'DESC');
+    }
     qb.skip((query.page - 1) * query.limit);
     qb.take(query.limit);
 

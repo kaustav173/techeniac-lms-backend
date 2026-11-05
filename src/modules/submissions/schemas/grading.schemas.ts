@@ -34,7 +34,7 @@ export const submissionQueueQuerySchema = z.object({
       .optional(),
     // Standard LMS sort convention and backward-compatible sort preset
     sort: z.enum(['latest', 'oldest']).optional().default('latest'),
-    sortBy: z.enum(['submittedAt']).optional(),
+    sortBy: z.enum(['submittedAt', 'mentee', 'name']).optional(),
     sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
