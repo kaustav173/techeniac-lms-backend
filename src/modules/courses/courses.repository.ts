@@ -114,39 +114,82 @@ export class CoursesRepository {
 
     const safeSortOrder = (sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
-    if (sortBy === 'topics') {
-      qb.addSelect(
-        (subQuery) =>
-          subQuery
-            .select('COUNT(t.id)', 'topic_count')
-            .from('topics', 't')
-            .where('t.course_id = course.id')
-            .andWhere('t.deleted_at IS NULL'),
-        'topic_count',
-      );
-      qb.orderBy('topic_count', safeSortOrder, 'NULLS LAST');
-    } else if (sortBy === 'tasks') {
-      qb.addSelect(
-        (subQuery) =>
-          subQuery
-            .select('COUNT(a.id)', 'assignment_count')
-            .from('assignments', 'a')
-            .where('a.course_id = course.id')
-            .andWhere('a.deleted_at IS NULL'),
-        'assignment_count',
-      );
-      qb.orderBy('assignment_count', safeSortOrder, 'NULLS LAST');
-    } else if (sortBy === 'title') {
-      qb.orderBy('LOWER(course.title)', safeSortOrder);
-    } else if (sortBy === 'updatedAt') {
-      qb.orderBy('course.updatedAt', safeSortOrder);
+    let items: Course[];
+    let total: number;
+
+    if (sortBy === 'topics' || sortBy === 'tasks') {
+      total = await qb.getCount();
+      if (total === 0) {
+        return { items: [], total: 0 };
+      }
+
+      const idQb = this.courseRepo
+        .createQueryBuilder('course')
+        .select('course.id', 'id')
+        .where('course.deletedAt IS NULL');
+
+      if (options?.isActive !== undefined) {
+        idQb.andWhere('course.isActive = :isActive', { isActive: options.isActive });
+      }
+
+      if (options?.search) {
+        const escaped = options.search.replace(/[%_\\]/g, '\\$&');
+        idQb.andWhere(
+          `(course.title ILIKE :search ESCAPE '\\' OR course.description ILIKE :search ESCAPE '\\')`,
+          {
+            search: `%${escaped}%`,
+          },
+        );
+      }
+
+      if (sortBy === 'topics') {
+        idQb
+          .leftJoin('topics', 't', 't.course_id = course.id AND t.deleted_at IS NULL')
+          .groupBy('course.id')
+          .orderBy('COUNT(t.id)', safeSortOrder, 'NULLS LAST');
+      } else {
+        idQb
+          .leftJoin('assignments', 'a', 'a.course_id = course.id AND a.deleted_at IS NULL')
+          .groupBy('course.id')
+          .orderBy('COUNT(a.id)', safeSortOrder, 'NULLS LAST');
+      }
+
+      idQb
+        .addOrderBy('course.createdAt', 'DESC')
+        .offset((page - 1) * limit)
+        .limit(limit);
+
+      const idResults: Array<{ id: string }> = await idQb.getRawMany();
+      const ids = idResults.map((r) => r.id);
+
+      if (ids.length === 0) {
+        return { items: [], total };
+      }
+
+      const loadedCourses = await this.courseRepo
+        .createQueryBuilder('course')
+        .leftJoin('course.creator', 'creator')
+        .addSelect(['creator.id', 'creator.name'])
+        .whereInIds(ids)
+        .getMany();
+
+      const courseMap = new Map(loadedCourses.map((c) => [c.id, c]));
+      items = ids.map((id) => courseMap.get(id)).filter((c): c is Course => Boolean(c));
     } else {
-      qb.orderBy('course.createdAt', safeSortOrder);
+      if (sortBy === 'title') {
+        qb.orderBy('course.title', safeSortOrder);
+      } else if (sortBy === 'updatedAt') {
+        qb.orderBy('course.updatedAt', safeSortOrder);
+      } else {
+        qb.orderBy('course.createdAt', safeSortOrder);
+      }
+
+      qb.skip((page - 1) * limit).take(limit);
+
+      const [pagedItems, pagedTotal] = await qb.getManyAndCount();
+      items = pagedItems;
+      total = pagedTotal;
     }
-
-    qb.skip((page - 1) * limit).take(limit);
-
-    const [items, total] = await qb.getManyAndCount();
 
     const courseIds = items.map((c) => c.id);
     if (courseIds.length > 0) {

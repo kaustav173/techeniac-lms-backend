@@ -201,19 +201,91 @@ export class BatchRepository {
 
     const page = params.page ?? 1;
     const limit = params.limit ?? 10;
-
     const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
+    // If sorting by members, use an explicit two-step ID query to avoid TypeORM pagination distinctAlias bug
+    if (params.sortBy === 'members') {
+      const total = await qb.getCount();
+      if (total === 0) {
+        return { items: [], total: 0 };
+      }
+
+      const idQb = this.batchRepo
+        .createQueryBuilder('batch')
+        .select('batch.id', 'id')
+        .leftJoin('batch.members', 'bm', 'bm.is_active = true AND bm.deleted_at IS NULL');
+
+      if (mentorId) {
+        idQb.andWhere(
+          `EXISTS (
+            SELECT 1 FROM batch_members mbm
+            WHERE mbm.batch_id = batch.id
+              AND mbm.user_id = :mentorId
+              AND mbm.member_role = :mentorRole
+              AND mbm.is_active = true
+              AND mbm.deleted_at IS NULL
+          )`,
+          { mentorId, mentorRole: BatchMemberRole.MENTOR },
+        );
+      }
+
+      if (params.status && params.status.length > 0) {
+        idQb.andWhere('batch.status IN (:...statuses)', { statuses: params.status });
+      }
+
+      if (params.search) {
+        const search = `%${params.search.trim()}%`;
+        idQb.andWhere('(batch.name ILIKE :search OR batch.code ILIKE :search)', { search });
+      }
+
+      idQb
+        .groupBy('batch.id')
+        .orderBy('COUNT(bm.id)', safeSortOrder, 'NULLS LAST')
+        .addOrderBy('batch.createdAt', 'DESC')
+        .offset((page - 1) * limit)
+        .limit(limit);
+
+      const idResults: Array<{ id: string }> = await idQb.getRawMany();
+      const ids = idResults.map((r) => r.id);
+
+      if (ids.length === 0) {
+        return { items: [], total };
+      }
+
+      const loadedBatches = await this.batchRepo
+        .createQueryBuilder('batch')
+        .leftJoinAndSelect('batch.creator', 'creator')
+        .loadRelationCountAndMap('batch.mentorsCount', 'batch.members', 'mentor', (subQb) =>
+          subQb.where('mentor.member_role = :mentorRole AND mentor.is_active = true', {
+            mentorRole: BatchMemberRole.MENTOR,
+          }),
+        )
+        .loadRelationCountAndMap('batch.menteesCount', 'batch.members', 'mentee', (subQb) =>
+          subQb.where('mentee.member_role = :menteeRole AND mentee.is_active = true', {
+            menteeRole: BatchMemberRole.MENTEE,
+          }),
+        )
+        .whereInIds(ids)
+        .getMany();
+
+      const batchMap = new Map(loadedBatches.map((b) => [b.id, b]));
+      const orderedBatches = ids
+        .map((id) => batchMap.get(id))
+        .filter((b): b is Batch => Boolean(b));
+
+      const itemsWithCounts: BatchWithCounts[] = orderedBatches.map((b) => ({
+        ...b,
+        mentorsCount: (b as unknown as { mentorsCount?: number }).mentorsCount ?? 0,
+        menteesCount: (b as unknown as { menteesCount?: number }).menteesCount ?? 0,
+      }));
+
+      return { items: itemsWithCounts, total };
+    }
+
     if (params.sortBy === 'name') {
-      qb.orderBy('LOWER(batch.name)', safeSortOrder, 'NULLS LAST');
-    } else if (params.sortBy === 'members') {
-      qb.orderBy(
-        `(SELECT COUNT(bm.id) FROM batch_members bm WHERE bm.batch_id = batch.id AND bm.is_active = true AND bm.deleted_at IS NULL)`,
-        safeSortOrder,
-        'NULLS LAST',
-      );
+      qb.orderBy('batch.name', safeSortOrder, 'NULLS LAST');
     } else if (params.sortBy === 'code') {
-      qb.orderBy('LOWER(batch.code)', safeSortOrder, 'NULLS LAST');
+      qb.orderBy('batch.code', safeSortOrder, 'NULLS LAST');
     } else if (params.sortBy === 'status') {
       qb.orderBy('batch.status', safeSortOrder, 'NULLS LAST');
     } else if (params.sortBy === 'startDate') {
