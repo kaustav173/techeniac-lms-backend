@@ -13,10 +13,26 @@ export const updateTopicDeadlineSchema = z.object({
   deadline: z.string().datetime({ message: 'Deadline must be a valid ISO 8601 datetime' }),
 });
 
+const commaSeparatedUuidsSchema = z
+  .union([
+    z.string().transform((val) =>
+      val
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+    z.array(z.string()),
+  ])
+  .pipe(z.array(z.string().uuid('Invalid UUID format')))
+  .optional();
+
 export const trackerQuerySchema = z.object({
   batchId: z.string().uuid().optional(),
+  batchIds: commaSeparatedUuidsSchema,
   menteeId: z.string().uuid().optional(),
+  menteeIds: commaSeparatedUuidsSchema,
   courseId: z.string().uuid().optional(),
+  courseIds: commaSeparatedUuidsSchema,
   search: z.string().trim().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),

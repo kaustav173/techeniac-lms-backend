@@ -179,6 +179,7 @@ export class ProgressRepository {
     courseId?: string;
     batchIds?: string[];
     menteeIds?: string[];
+    courseIds?: string[];
     mentorId?: string;
     search?: string;
     page?: number;
@@ -226,6 +227,11 @@ export class ProgressRepository {
 
     if (options.courseId) {
       qb.andWhere('alloc.courseId = :courseId', { courseId: options.courseId });
+    } else if (options.courseIds !== undefined) {
+      if (options.courseIds.length === 0) {
+        return { allocations: [], total: 0 };
+      }
+      qb.andWhere('alloc.courseId IN (:...courseIds)', { courseIds: options.courseIds });
     }
 
     if (options.search) {

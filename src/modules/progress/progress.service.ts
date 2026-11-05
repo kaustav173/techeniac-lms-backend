@@ -430,8 +430,11 @@ export class ProgressService {
 
     const { allocations, total } = await this.repository.listTrackers({
       batchId: query.batchId,
+      batchIds: query.batchIds,
       menteeId: query.menteeId,
+      menteeIds: query.menteeIds,
       courseId: query.courseId,
+      courseIds: query.courseIds,
       mentorId: isMentor ? actor.id : undefined,
       search: query.search,
       page,
