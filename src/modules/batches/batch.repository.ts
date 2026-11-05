@@ -33,15 +33,19 @@ export interface BatchWithCounts extends Batch {
 }
 
 export class BatchRepository {
-  private readonly batchRepo: Repository<Batch>;
-  private readonly memberRepo: Repository<BatchMember>;
-  private readonly historyRepo: Repository<BatchStatusHistory>;
-
-  constructor(dataSource: DataSource = AppDataSource) {
-    this.batchRepo = dataSource.getRepository(Batch);
-    this.memberRepo = dataSource.getRepository(BatchMember);
-    this.historyRepo = dataSource.getRepository(BatchStatusHistory);
+  private get batchRepo(): Repository<Batch> {
+    return this.dataSource.getRepository(Batch);
   }
+
+  private get memberRepo(): Repository<BatchMember> {
+    return this.dataSource.getRepository(BatchMember);
+  }
+
+  private get historyRepo(): Repository<BatchStatusHistory> {
+    return this.dataSource.getRepository(BatchStatusHistory);
+  }
+
+  constructor(private readonly dataSource: DataSource = AppDataSource) {}
 
   private getBatchRepo(manager?: EntityManager): Repository<Batch> {
     return manager ? manager.getRepository(Batch) : this.batchRepo;

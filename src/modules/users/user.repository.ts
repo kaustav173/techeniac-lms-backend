@@ -18,13 +18,15 @@ export interface CreateUserData {
 }
 
 export class UserRepository {
-  private readonly repo: Repository<User>;
-  private readonly historyRepo: Repository<UserRoleHistory>;
-
-  constructor(private readonly dataSource: DataSource = AppDataSource) {
-    this.repo = dataSource.getRepository(User);
-    this.historyRepo = dataSource.getRepository(UserRoleHistory);
+  private get repo(): Repository<User> {
+    return this.dataSource.getRepository(User);
   }
+
+  private get historyRepo(): Repository<UserRoleHistory> {
+    return this.dataSource.getRepository(UserRoleHistory);
+  }
+
+  constructor(private readonly dataSource: DataSource = AppDataSource) {}
 
   public async transaction<T>(
     runInTransaction: (manager: EntityManager) => Promise<T>,
