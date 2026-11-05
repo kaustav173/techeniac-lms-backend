@@ -117,6 +117,32 @@ void describe('Module 14: Audit Service Unit Tests (AUD-01 to AUD-05)', () => {
     assert.equal(result.items.length, 1);
   });
 
+  void it('forwards types multi-filter, search, and sortOrder to repository', async () => {
+    let capturedTypes: unknown;
+    let capturedSearch: string | undefined;
+    let capturedSortOrder: string | undefined;
+
+    mockRepository.findWithFilters = (params) => {
+      capturedTypes = params.types;
+      capturedSearch = params.search;
+      capturedSortOrder = params.sortOrder;
+      return Promise.resolve({ items: sampleAuditLogs, total: 2 });
+    };
+
+    const result = await auditService.getAuditLogs({
+      page: 1,
+      limit: 10,
+      types: [AuditType.AUTH, AuditType.USER],
+      search: 'Mentee',
+      sortOrder: 'asc',
+    });
+
+    assert.deepEqual(capturedTypes, [AuditType.AUTH, AuditType.USER]);
+    assert.equal(capturedSearch, 'Mentee');
+    assert.equal(capturedSortOrder, 'asc');
+    assert.equal(result.items.length, 2);
+  });
+
   void it('returns totalPages: 0 when total is 0', async () => {
     mockRepository.findWithFilters = () => {
       return Promise.resolve({ items: [], total: 0 });

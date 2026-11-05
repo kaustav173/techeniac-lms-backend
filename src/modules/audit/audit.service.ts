@@ -95,6 +95,10 @@ export class AuditService {
       }
     }
 
+    if (typeof this.repo.findTargetEntitiesBatch !== 'function') {
+      return items;
+    }
+
     const batchData = await this.repo.findTargetEntitiesBatch({
       allocationIds: Array.from(allocationIds),
       submissionIds: Array.from(submissionIds),

@@ -169,6 +169,18 @@ void describe('Request Context Middleware & Utilities Unit Tests', () => {
       const result = resolveCountry('0.1.2.3', req);
       assert.equal(result, 'Public Network');
     });
+
+    void it('rejects unbounded or invalid country fallback headers and bounds string length', () => {
+      const maliciousReq = createMockRequest({
+        headers: {
+          'x-country': 'A'.repeat(150),
+        },
+      });
+      // 198.51.100.1 is TEST-NET-2 without GeoIP entry
+      const result = resolveCountry('198.51.100.1', maliciousReq);
+      assert.equal(result, 'Public Network');
+      assert.ok(result.length <= 100);
+    });
   });
 
   void describe('requestContextMiddleware', () => {

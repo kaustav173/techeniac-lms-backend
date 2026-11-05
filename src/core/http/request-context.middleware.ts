@@ -59,13 +59,13 @@ export function resolveCountryName(countryCodeOrName: string): string {
     try {
       const region = REGION_NAMES.of(code);
       if (region) {
-        return `${region} (${code})`;
+        return `${region} (${code})`.slice(0, 100);
       }
     } catch {
       // Intl fallback
     }
   }
-  return countryCodeOrName.trim();
+  return countryCodeOrName.trim().slice(0, 100);
 }
 
 export function resolveClientIp(req: Request): string {
@@ -86,7 +86,7 @@ export function resolveCountry(ipAddress: string, req?: Request): string {
   // Real IP-to-country lookup
   const geo = geoip.lookup(ipAddress);
   if (geo?.country) {
-    return resolveCountryName(geo.country);
+    return resolveCountryName(geo.country).slice(0, 100);
   }
 
   // Edge reverse-proxy fallback headers if present in future edge environments
@@ -99,8 +99,13 @@ export function resolveCountry(ipAddress: string, req?: Request): string {
       req.headers['x-country'] ||
       req.headers['geoip-country-code'];
 
-    if (typeof countryHeader === 'string' && countryHeader.trim().length > 0) {
-      return resolveCountryName(countryHeader);
+    if (typeof countryHeader === 'string') {
+      const cleanHeader = countryHeader.trim().toUpperCase();
+      // Validate that header is a plausible 2-5 character country code (e.g. ISO 3166 alpha-2 or alpha-3)
+      // to strictly prevent untrusted input and VARCHAR(100) column overflows
+      if (/^[A-Z]{2,5}$/.test(cleanHeader)) {
+        return resolveCountryName(cleanHeader).slice(0, 100);
+      }
     }
   }
 
