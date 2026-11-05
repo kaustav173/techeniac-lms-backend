@@ -6,6 +6,7 @@ import {
   Batch,
   BatchMember,
   BatchMemberRole,
+  batchQuerySchema,
   batchRepository,
   batchService,
   BatchStatus,
@@ -208,5 +209,11 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
         return true;
       },
     );
+  });
+
+  void it('defaults pagination limit to 10 in batchQuerySchema', () => {
+    const parsed = batchQuerySchema.shape.query.parse({});
+    assert.equal(parsed.limit, 10);
+    assert.equal(parsed.page, 1);
   });
 });

@@ -12,18 +12,31 @@ export const getAuditLogsSchema = z.object({
   query: z
     .object({
       type: auditTypeSchema.optional(),
+      types: z
+        .preprocess((val) => {
+          if (typeof val === 'string') {
+            return val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+          }
+          return val;
+        }, z.array(auditTypeSchema))
+        .optional(),
       actorId: z.string().uuid('Invalid actor ID format').optional(),
       entity: z.string().min(1).max(100).optional(),
       action: z.string().min(1).max(100).optional(),
+      search: z.string().trim().max(100).optional(),
       startDate: dateStringSchema.optional(),
       endDate: dateStringSchema.optional(),
+      sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional(),
       page: z.coerce.number().int().min(1, 'Page must be at least 1').default(1),
       limit: z.coerce
         .number()
         .int()
         .min(1, 'Limit must be at least 1')
         .max(100, 'Limit cannot exceed 100')
-        .default(20),
+        .default(10),
     })
     .refine(
       (data) => {

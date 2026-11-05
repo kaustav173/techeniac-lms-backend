@@ -64,7 +64,7 @@ export class GradingService {
       const mappings = await gradingRepository.findActiveMappingsForMentor(actor.id);
       if (mappings.length === 0) {
         const page = query.page ?? 1;
-        const limit = query.limit ?? 20;
+        const limit = query.limit ?? 10;
         return {
           items: [],
           total: 0,
@@ -208,6 +208,8 @@ export class GradingService {
         gradeLabel: computedGradeLabel,
         feedback: input.feedback ?? null,
         status: SubmissionStatus.GRADED,
+        studentName: safeAllocation.user?.name ?? null,
+        assignmentTitle: safeSubmission.assignment?.title ?? null,
       },
     });
 
@@ -334,6 +336,8 @@ export class GradingService {
       newValue: {
         status: SubmissionStatus.RESUBMIT_REQUESTED,
         feedback: input.feedback,
+        studentName: safeAllocation.user?.name ?? null,
+        assignmentTitle: safeSubmission.assignment?.title ?? null,
       },
     });
 

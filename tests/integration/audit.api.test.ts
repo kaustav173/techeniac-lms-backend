@@ -323,4 +323,88 @@ void describe('Audit Log API Integration Tests (Module 14: AUD-01 to AUD-05)', (
     assert.equal(capturedStartDate, '2026-03-01');
     assert.equal(capturedEndDate, '2026-03-10');
   });
+
+  void it('supports multi-type filtering with types=AUTH,USER', async () => {
+    let capturedTypes: AuditType[] | undefined;
+
+    auditRepository.findWithFilters = (params) => {
+      capturedTypes = params.types;
+      return Promise.resolve({
+        items: [
+          createMockAuditLog({
+            id: 'audit-types-1',
+            type: AuditType.AUTH,
+            action: 'LOGIN',
+            entity: 'User',
+          }),
+          createMockAuditLog({
+            id: 'audit-types-2',
+            type: AuditType.USER,
+            action: 'USER_CREATED',
+            entity: 'User',
+          }),
+        ],
+        total: 2,
+      });
+    };
+
+    const res = await fetch(`${baseUrl}?types=AUTH,USER`, {
+      headers: { Authorization: `Bearer ${tokenAdmin}` },
+    });
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as AuditResponseBody;
+    assert.equal(body.success, true);
+    assert.equal(body.data.length, 2);
+    assert.deepEqual(capturedTypes, [AuditType.AUTH, AuditType.USER]);
+  });
+
+  void it('supports free-text search across actor, entity, action, and payloads', async () => {
+    let capturedSearch: string | undefined;
+
+    auditRepository.findWithFilters = (params) => {
+      capturedSearch = params.search;
+      return Promise.resolve({
+        items: [
+          createMockAuditLog({
+            id: 'audit-search-1',
+            type: AuditType.USER,
+            action: 'ROLE_CHANGE',
+            entity: 'User',
+            newValue: { name: 'Mentee One' },
+          }),
+        ],
+        total: 1,
+      });
+    };
+
+    const res = await fetch(`${baseUrl}?search=Mentee`, {
+      headers: { Authorization: `Bearer ${tokenAdmin}` },
+    });
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as AuditResponseBody;
+    assert.equal(body.success, true);
+    assert.equal(body.data.length, 1);
+    assert.equal(capturedSearch, 'Mentee');
+  });
+
+  void it('supports custom sortOrder=asc', async () => {
+    let capturedSortOrder: string | undefined;
+
+    auditRepository.findWithFilters = (params) => {
+      capturedSortOrder = params.sortOrder;
+      return Promise.resolve({
+        items: [],
+        total: 0,
+      });
+    };
+
+    const res = await fetch(`${baseUrl}?sortOrder=asc`, {
+      headers: { Authorization: `Bearer ${tokenAdmin}` },
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(capturedSortOrder, 'asc');
+  });
 });

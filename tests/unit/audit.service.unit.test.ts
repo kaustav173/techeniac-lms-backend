@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 
 import { logAudit } from '../../src/core/audit';
+import { requestContextStorage } from '../../src/core/http/request-context.middleware';
 import {
   AuditLog,
   type AuditRepository,
@@ -51,12 +52,12 @@ void describe('Module 14: Audit Service Unit Tests (AUD-01 to AUD-05)', () => {
     auditService = new AuditService(mockRepository as AuditRepository);
   });
 
-  void it('returns audit logs and default pagination (page=1, limit=20)', async () => {
-    const result = await auditService.getAuditLogs({ page: 1, limit: 20 });
+  void it('returns audit logs and default pagination (page=1, limit=10)', async () => {
+    const result = await auditService.getAuditLogs({ page: 1 });
 
     assert.equal(result.items.length, 2);
     assert.equal(result.pagination.page, 1);
-    assert.equal(result.pagination.limit, 20);
+    assert.equal(result.pagination.limit, 10);
     assert.equal(result.pagination.total, 2);
     assert.equal(result.pagination.totalPages, 1);
   });
@@ -116,6 +117,32 @@ void describe('Module 14: Audit Service Unit Tests (AUD-01 to AUD-05)', () => {
     assert.equal(result.items.length, 1);
   });
 
+  void it('forwards types multi-filter, search, and sortOrder to repository', async () => {
+    let capturedTypes: unknown;
+    let capturedSearch: string | undefined;
+    let capturedSortOrder: string | undefined;
+
+    mockRepository.findWithFilters = (params) => {
+      capturedTypes = params.types;
+      capturedSearch = params.search;
+      capturedSortOrder = params.sortOrder;
+      return Promise.resolve({ items: sampleAuditLogs, total: 2 });
+    };
+
+    const result = await auditService.getAuditLogs({
+      page: 1,
+      limit: 10,
+      types: [AuditType.AUTH, AuditType.USER],
+      search: 'Mentee',
+      sortOrder: 'asc',
+    });
+
+    assert.deepEqual(capturedTypes, [AuditType.AUTH, AuditType.USER]);
+    assert.equal(capturedSearch, 'Mentee');
+    assert.equal(capturedSortOrder, 'asc');
+    assert.equal(result.items.length, 2);
+  });
+
   void it('returns totalPages: 0 when total is 0', async () => {
     mockRepository.findWithFilters = () => {
       return Promise.resolve({ items: [], total: 0 });
@@ -160,6 +187,99 @@ void describe('Module 14: Audit Service Unit Tests (AUD-01 to AUD-05)', () => {
         action: 'LOGIN',
       });
       assert.equal(outcome, null);
+    } finally {
+      auditRepository.create = origCreate;
+    }
+  });
+
+  void it('logAudit falls through to request context when ipAddress and country are undefined', async () => {
+    const origCreate = auditRepository.create.bind(auditRepository);
+    let capturedData: unknown = null;
+    auditRepository.create = (data) => {
+      capturedData = data;
+      return Promise.resolve(createMockAuditLog({ id: 'audit-ctx-1' }));
+    };
+
+    try {
+      await requestContextStorage.run(
+        { ipAddress: '103.27.8.1', country: 'India (IN)' },
+        async () => {
+          await logAudit({
+            type: AuditType.AUTH,
+            entity: 'User',
+            action: 'LOGIN',
+          });
+        },
+      );
+
+      assert.deepEqual(capturedData, {
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGIN',
+        ipAddress: '103.27.8.1',
+        country: 'India (IN)',
+      });
+    } finally {
+      auditRepository.create = origCreate;
+    }
+  });
+
+  void it('logAudit respects explicit null ipAddress and country overriding request context', async () => {
+    const origCreate = auditRepository.create.bind(auditRepository);
+    let capturedData: unknown = null;
+    auditRepository.create = (data) => {
+      capturedData = data;
+      return Promise.resolve(createMockAuditLog({ id: 'audit-null-1' }));
+    };
+
+    try {
+      await requestContextStorage.run(
+        { ipAddress: '103.27.8.1', country: 'India (IN)' },
+        async () => {
+          await logAudit({
+            type: AuditType.AUTH,
+            entity: 'User',
+            action: 'LOGIN',
+            ipAddress: null,
+            country: null,
+          });
+        },
+      );
+
+      assert.deepEqual(capturedData, {
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGIN',
+        ipAddress: null,
+        country: null,
+      });
+    } finally {
+      auditRepository.create = origCreate;
+    }
+  });
+
+  void it('logAudit resolves ipAddress and country to null when no request context exists and undefined passed', async () => {
+    const origCreate = auditRepository.create.bind(auditRepository);
+    let capturedData: unknown = null;
+    auditRepository.create = (data) => {
+      capturedData = data;
+      return Promise.resolve(createMockAuditLog({ id: 'audit-no-ctx-1' }));
+    };
+
+    try {
+      await logAudit({
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGOUT',
+      });
+
+      assert.deepEqual(capturedData, {
+        type: AuditType.AUTH,
+        entity: 'User',
+        action: 'LOGOUT',
+        ipAddress: null,
+        country: null,
+      });
     } finally {
       auditRepository.create = origCreate;
     }

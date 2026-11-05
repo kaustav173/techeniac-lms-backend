@@ -241,7 +241,7 @@ export class GradingRepository {
 
     // Server-side pagination (FR-10.7, REV-15)
     const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const limit = query.limit ?? 10;
     qb.skip((page - 1) * limit).take(limit);
 
     // Optimized execution: fetch data and compute total count without heavy outer joins

@@ -11,6 +11,7 @@ import { CourseAllocation, CourseAllocationStatus } from '../../src/modules/allo
 import { Batch, BatchMember, BatchStatus } from '../../src/modules/batches';
 import { Assignment, AssignmentScope, Course, SubmissionMode } from '../../src/modules/courses';
 import {
+  listMyAssignmentsQuerySchema,
   Submission,
   submissionsRepository,
   SubmissionsService,
@@ -452,6 +453,12 @@ void describe('SubmissionsService Unit Tests (Module 9)', () => {
           return true;
         },
       );
+    });
+
+    void it('defaults pagination limit to 10 in listMyAssignmentsQuerySchema', () => {
+      const parsed = listMyAssignmentsQuerySchema.shape.query.parse({});
+      assert.equal(parsed.limit, 10);
+      assert.equal(parsed.page, 1);
     });
   });
 });

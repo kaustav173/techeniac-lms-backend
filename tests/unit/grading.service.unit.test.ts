@@ -14,6 +14,7 @@ import {
   gradingRepository,
   gradingService,
   Submission,
+  submissionQueueQuerySchema,
   SubmissionStatus,
 } from '../../src/modules/submissions';
 import { User, UserRole } from '../../src/modules/users';
@@ -383,6 +384,12 @@ void describe('Module 10: Submission Queue, Review & Grading Unit Tests (REV-01 
       await gradingService.getSubmissionQueue({ page: 1, limit: 20, sort: 'latest' }, mentorA);
 
       assert.deepEqual(passedAllowedPairs, [{ batchId: 'batch-1', menteeId: 'mentee-1' }]);
+    });
+
+    void it('defaults pagination limit to 10 in submissionQueueQuerySchema', () => {
+      const parsed = submissionQueueQuerySchema.shape.query.parse({});
+      assert.equal(parsed.limit, 10);
+      assert.equal(parsed.page, 1);
     });
   });
 });

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { SubmissionStatus } from '../entities/submission.entity';
+import { SubmissionStatus } from '../entities/submission.enums';
 
 export const submissionIdParamSchema = z.object({
   params: z.object({
@@ -37,7 +37,7 @@ export const submissionQueueQuerySchema = z.object({
     sortBy: z.enum(['submittedAt', 'mentee', 'name']).optional(),
     sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional(),
     page: z.coerce.number().int().positive().default(1),
-    limit: z.coerce.number().int().positive().max(100).default(20),
+    limit: z.coerce.number().int().positive().max(100).default(10),
   }),
 });
 

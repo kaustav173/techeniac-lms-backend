@@ -130,6 +130,9 @@ export class AllocationsService {
       courseId: course.id,
     });
 
+    const userList = await this.repo.findUsersByIds(savedAllocations.map((a) => a.userId));
+    const userMap = new Map(userList.map((u) => [u.id, u.name]));
+
     await Promise.all(
       savedAllocations.map((alloc) =>
         logAudit({
@@ -140,7 +143,9 @@ export class AllocationsService {
           action: 'ALLOCATE_COURSE',
           newValue: {
             courseId: alloc.courseId,
+            courseTitle: course.title,
             userId: alloc.userId,
+            userName: userMap.get(alloc.userId) ?? null,
             batchId: alloc.batchId,
             startDate: alloc.startDate,
             dueDate: alloc.dueDate,

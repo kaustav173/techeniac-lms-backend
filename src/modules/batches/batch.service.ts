@@ -98,7 +98,7 @@ export class BatchService {
   public async getBatches(params: BatchQueryParams) {
     const { items, total } = await this.batchRepo.findWithFilters(params);
     const page = params.page ?? 1;
-    const limit = params.limit ?? 20;
+    const limit = params.limit ?? 10;
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
@@ -590,8 +590,9 @@ export class BatchService {
       });
 
       await Promise.all(
-        created.map((mapping) =>
-          logAudit({
+        created.map((mapping) => {
+          const menteeUser = mappedMenteeUsers.find((m) => m.id === mapping.menteeId);
+          return logAudit({
             actorId,
             type: AuditType.MENTOR_MAPPING,
             entity: 'MentorMentee',
@@ -600,10 +601,12 @@ export class BatchService {
             newValue: {
               batchId,
               mentorId: input.mentorId,
+              mentorName: mentorUser.name,
               menteeId: mapping.menteeId,
+              menteeName: menteeUser?.name ?? null,
             },
-          }),
-        ),
+          });
+        }),
       );
 
       // Post-commit notifications (PRD Section 7.2)
@@ -746,11 +749,16 @@ export class BatchService {
         entity: 'MentorMentee',
         entityId: result.id,
         action: 'REASSIGN_MENTEE',
-        oldValue: { mentorId: existingMapping?.mentorId ?? null },
+        oldValue: {
+          mentorId: existingMapping?.mentorId ?? null,
+          mentorName: oldMentorUser?.name ?? null,
+        },
         newValue: {
           batchId,
           mentorId: input.newMentorId,
+          mentorName: newMentorUser.name,
           menteeId: input.menteeId,
+          menteeName: menteeUser.name,
           reason: input.reason ?? null,
         },
       });
@@ -777,7 +785,7 @@ export class BatchService {
   public async getBatchesForMentor(mentorId: string, params: BatchQueryParams) {
     const { items, total } = await this.batchRepo.findWithFilters(params, mentorId);
     const page = params.page ?? 1;
-    const limit = params.limit ?? 20;
+    const limit = params.limit ?? 10;
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
