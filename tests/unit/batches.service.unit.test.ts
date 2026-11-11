@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 
+import type { DataSource } from 'typeorm';
+
 import { ForbiddenError } from '../../src/core/errors';
 import {
   Batch,
   BatchMember,
   BatchMemberRole,
   batchQuerySchema,
+  BatchRepository,
   batchRepository,
   batchService,
   BatchStatus,
@@ -216,4 +219,163 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     assert.equal(parsed.limit, 10);
     assert.equal(parsed.page, 1);
   });
+
+  void it('parses valid sortBy and sortOrder values in batchQuerySchema', () => {
+    const parsed = batchQuerySchema.shape.query.parse({
+      sortBy: 'members',
+      sortOrder: 'asc',
+    });
+    assert.equal(parsed.sortBy, 'members');
+    assert.equal(parsed.sortOrder, 'asc');
+
+    const invalid = batchQuerySchema.shape.query.safeParse({ sortBy: 'unknown' });
+    assert.equal(invalid.success, false);
+  });
+
+  void it('uses two-step ID query for members sorting and preserves returned ID order', async () => {
+    const orderBys: Array<{ column: string; order?: string; nulls?: string }> = [];
+    const capturedParams: Record<string, unknown>[] = [];
+    const batchA = {
+      id: 'b-1',
+      name: 'Alpha',
+      mentorsCount: 1,
+      menteesCount: 5,
+    } as BatchWithCountsLike;
+    const batchB = {
+      id: 'b-2',
+      name: 'Beta',
+      mentorsCount: 2,
+      menteesCount: 10,
+    } as BatchWithCountsLike;
+    let callIndex = 0;
+
+    const createMockQb = () => {
+      const idx = callIndex++;
+      const qb = {
+        select: () => qb,
+        leftJoin: () => qb,
+        leftJoinAndSelect: () => qb,
+        loadRelationCountAndMap: () => qb,
+        andWhere: (_clause: string, params?: Record<string, unknown>) => {
+          if (params) capturedParams.push(params);
+          return qb;
+        },
+        groupBy: () => qb,
+        orderBy: (column: string, order?: string, nulls?: string) => {
+          if (idx === 1) orderBys.push({ column, order, nulls });
+          return qb;
+        },
+        addOrderBy: (column: string, order?: string) => {
+          if (idx === 1) orderBys.push({ column, order });
+          return qb;
+        },
+        offset: () => qb,
+        limit: () => qb,
+        skip: () => qb,
+        take: () => qb,
+        whereInIds: () => qb,
+        getCount: () => Promise.resolve(2),
+        getRawMany: () => Promise.resolve([{ id: 'b-2' }, { id: 'b-1' }]),
+        getMany: () => Promise.resolve([batchA, batchB]),
+      };
+      return qb;
+    };
+
+    const repoObj = {
+      createQueryBuilder: createMockQb,
+    };
+    const mockDataSource = {
+      getRepository: () => repoObj,
+      transaction: async <T>(cb: (manager: unknown) => Promise<T>) =>
+        await cb({ getRepository: () => repoObj }),
+    } as unknown as DataSource;
+
+    const repo = new BatchRepository(mockDataSource);
+    const result = await repo.findWithFilters({
+      page: 1,
+      limit: 10,
+      sortBy: 'members',
+      sortOrder: 'desc',
+      search: 'test_100%',
+    });
+
+    assert.equal(result.total, 2);
+    assert.deepEqual(
+      result.items.map((b) => b.id),
+      ['b-2', 'b-1'],
+    );
+    assert.deepEqual(orderBys, [
+      { column: 'COUNT(bm.id)', order: 'DESC', nulls: 'NULLS LAST' },
+      { column: 'batch.createdAt', order: 'DESC' },
+      { column: 'batch.id', order: 'ASC' },
+    ]);
+    assert.deepEqual(
+      capturedParams.find((p) => 'search' in p),
+      { search: '%test\\_100\\%%' },
+    );
+  });
+
+  void it('uses case-insensitive LOWER(batch.name) in transactional two-step ID query and adjusts total if a row disappears', async () => {
+    const orderBys: Array<{ column: string; order?: string }> = [];
+    let callIndex = 0;
+    let usedTransaction = false;
+
+    const createMockQb = () => {
+      const idx = callIndex++;
+      const qb = {
+        select: () => qb,
+        leftJoinAndSelect: () => qb,
+        loadRelationCountAndMap: () => qb,
+        andWhere: () => qb,
+        orderBy: (column: string, order?: string) => {
+          if (idx === 1) orderBys.push({ column, order });
+          return qb;
+        },
+        addOrderBy: (column: string, order?: string) => {
+          if (idx === 1) orderBys.push({ column, order });
+          return qb;
+        },
+        offset: () => qb,
+        limit: () => qb,
+        whereInIds: () => qb,
+        getCount: () => Promise.resolve(2),
+        getRawMany: () => Promise.resolve([{ id: 'b-1' }, { id: 'b-2' }]),
+        getMany: () => Promise.resolve([{ id: 'b-1', name: 'Alpha' } as Batch]),
+      };
+      return qb;
+    };
+
+    const repoObj = {
+      createQueryBuilder: createMockQb,
+    };
+    const mockDataSource = {
+      getRepository: () => repoObj,
+      transaction: async <T>(cb: (manager: unknown) => Promise<T>) => {
+        usedTransaction = true;
+        return await cb({ getRepository: () => repoObj });
+      },
+    } as unknown as DataSource;
+
+    const repo = new BatchRepository(mockDataSource);
+    const result = await repo.findWithFilters({
+      page: 1,
+      limit: 10,
+      sortBy: 'name',
+      sortOrder: 'asc',
+    });
+
+    assert.equal(usedTransaction, true);
+    assert.equal(result.total, 1);
+    assert.deepEqual(orderBys, [
+      { column: 'LOWER(batch.name)', order: 'ASC' },
+      { column: 'batch.createdAt', order: 'DESC' },
+      { column: 'batch.id', order: 'ASC' },
+    ]);
+
+    const defaults = batchQuerySchema.shape.query.parse({});
+    assert.equal(defaults.sortBy, 'createdAt');
+    assert.equal(defaults.sortOrder, 'desc');
+  });
 });
+
+type BatchWithCountsLike = Batch & { mentorsCount: number; menteesCount: number };

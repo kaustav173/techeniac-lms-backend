@@ -5,11 +5,11 @@ import { BatchReasonToLeave } from './entities/batch.enums';
 import { MentorMentee } from './entities/mentor-mentee.entity';
 
 export class MentorMenteeRepository {
-  private readonly repo: Repository<MentorMentee>;
-
-  constructor(dataSource: DataSource = AppDataSource) {
-    this.repo = dataSource.getRepository(MentorMentee);
+  private get repo(): Repository<MentorMentee> {
+    return this.dataSource.getRepository(MentorMentee);
   }
+
+  constructor(private readonly dataSource: DataSource = AppDataSource) {}
 
   private getRepo(manager?: EntityManager): Repository<MentorMentee> {
     return manager ? manager.getRepository(MentorMentee) : this.repo;

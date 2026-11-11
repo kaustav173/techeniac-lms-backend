@@ -98,12 +98,46 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
         assert.match(result.error.errors[0]?.message ?? '', /At most 20 mentor IDs/);
       }
     });
+
+    void it('parses single, comma-separated, and array role/status filters with normalization', () => {
+      const csvParsed = userQuerySchema.parse({
+        role: 'super_admin, mentor',
+        status: 'ACTIVE, pending',
+        sortBy: 'status',
+        sortOrder: 'asc',
+      });
+      assert.deepStrictEqual(csvParsed.role, [UserRole.SUPER_ADMIN, UserRole.MENTOR]);
+      assert.deepStrictEqual(csvParsed.status, ['active', 'pending']);
+      assert.strictEqual(csvParsed.sortBy, 'status');
+      assert.strictEqual(csvParsed.sortOrder, 'asc');
+
+      const arrParsed = userQuerySchema.parse({
+        role: ['MENTEE', 'mentor'] as unknown as string,
+        status: ['INACTIVE', 'Pending'] as unknown as string,
+      });
+      assert.deepStrictEqual(arrParsed.role, [UserRole.MENTEE, UserRole.MENTOR]);
+      assert.deepStrictEqual(arrParsed.status, ['inactive', 'pending']);
+    });
+
+    void it('normalizes empty strings and empty arrays for role and status to undefined', () => {
+      const emptyStr = userQuerySchema.parse({ role: '   ', status: '' });
+      assert.strictEqual(emptyStr.role, undefined);
+      assert.strictEqual(emptyStr.status, undefined);
+
+      const emptyArr = userQuerySchema.parse({
+        role: [] as unknown as string,
+        status: ['  '] as unknown as string,
+      });
+      assert.strictEqual(emptyArr.role, undefined);
+      assert.strictEqual(emptyArr.status, undefined);
+    });
   });
 
   void describe('UserRepository.findAll Query Construction', () => {
     function createMockQueryBuilder() {
       const andWhereClauses: string[] = [];
       const capturedParams: Record<string, unknown>[] = [];
+      const orderBys: Array<{ column: string; order?: string }> = [];
       const qb = {
         where: () => qb,
         andWhere: (clause: string, params?: unknown) => {
@@ -111,12 +145,24 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
           if (params) capturedParams.push(params as Record<string, unknown>);
           return qb;
         },
-        orderBy: () => qb,
+        orderBy: (column: string, order?: string) => {
+          orderBys.push({ column, order });
+          return qb;
+        },
+        addOrderBy: (column: string, order?: string) => {
+          orderBys.push({ column, order });
+          return qb;
+        },
         skip: () => qb,
         take: () => qb,
         getManyAndCount: () => Promise.resolve([[], 0] as [User[], number]),
       };
-      return { qb: qb as unknown as SelectQueryBuilder<User>, andWhereClauses, capturedParams };
+      return {
+        qb: qb as unknown as SelectQueryBuilder<User>,
+        andWhereClauses,
+        capturedParams,
+        orderBys,
+      };
     }
 
     void it('appends NOT EXISTS when withoutActiveBatch is true', async () => {
@@ -277,6 +323,133 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
 
       const hasMentorClause = andWhereClauses.some((c) => c.includes('mentor_mentees mm'));
       assert.strictEqual(hasMentorClause, false);
+    });
+
+    void it('scopes status=pending to active users and supports multi-role IN clause', async () => {
+      const repo = new UserRepository();
+      const { qb, andWhereClauses, capturedParams } = createMockQueryBuilder();
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => qb,
+        }),
+      } as unknown as EntityManager;
+
+      await repo.findAll(
+        {
+          page: 1,
+          limit: 10,
+          role: [UserRole.SUPER_ADMIN, UserRole.MENTOR],
+          status: ['pending', 'inactive'],
+          search: '100%_test\\user',
+        },
+        mockManager,
+      );
+
+      assert.strictEqual(
+        andWhereClauses.some((c) => c.includes('user.role IN (:...roles)')),
+        true,
+      );
+      assert.strictEqual(
+        andWhereClauses.some(
+          (c) =>
+            c.includes(
+              '(user.is_active = true AND (user.must_change_password = true OR user.last_login_at IS NULL))',
+            ) && c.includes('(user.is_active = false)'),
+        ),
+        true,
+      );
+      assert.deepStrictEqual(
+        capturedParams.find((p) => 'search' in p),
+        { search: '%100\\%\\_test\\\\user%' },
+      );
+    });
+
+    void it('orders status sort by is_active, derived pending state, and deterministic tie-breakers', async () => {
+      const repo = new UserRepository();
+      const { qb, orderBys } = createMockQueryBuilder();
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => qb,
+        }),
+      } as unknown as EntityManager;
+
+      await repo.findAll({ page: 1, limit: 10, sortBy: 'status', sortOrder: 'desc' }, mockManager);
+
+      assert.deepStrictEqual(orderBys, [
+        { column: 'user.is_active', order: 'DESC' },
+        {
+          column: '(user.must_change_password = true OR user.last_login_at IS NULL)',
+          order: 'ASC',
+        },
+        { column: 'user.created_at', order: 'DESC' },
+        { column: 'user.id', order: 'ASC' },
+      ]);
+    });
+
+    void it('orders name sort case-insensitively with created_at and id tie-breakers', async () => {
+      const repo = new UserRepository();
+      const { qb, orderBys } = createMockQueryBuilder();
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => qb,
+        }),
+      } as unknown as EntityManager;
+
+      await repo.findAll({ page: 1, limit: 10, sortBy: 'name', sortOrder: 'asc' }, mockManager);
+
+      assert.deepStrictEqual(orderBys, [
+        { column: 'LOWER(user.name)', order: 'ASC' },
+        { column: 'user.created_at', order: 'DESC' },
+        { column: 'user.id', order: 'ASC' },
+      ]);
+    });
+
+    void it('computes total, active, pending, and inactive counts in getCounts using matching status predicates', async () => {
+      const repo = new UserRepository();
+      const selectCalls: Array<{ expr: string; alias?: string }> = [];
+      const whereClauses: string[] = [];
+
+      const countQb = {
+        select: (expr: string, alias?: string) => {
+          selectCalls.push({ expr, alias });
+          return countQb;
+        },
+        addSelect: (expr: string, alias?: string) => {
+          selectCalls.push({ expr, alias });
+          return countQb;
+        },
+        where: (clause: string) => {
+          whereClauses.push(clause);
+          return countQb;
+        },
+        getRawOne: () => Promise.resolve({ total: '12', active: '7', pending: '3', inactive: '2' }),
+      };
+
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => countQb,
+        }),
+      } as unknown as EntityManager;
+
+      const counts = await repo.getCounts(mockManager);
+
+      assert.deepStrictEqual(counts, { total: 12, active: 7, pending: 3, inactive: 2 });
+      assert.strictEqual(
+        whereClauses.some((c) => c.includes('user.deleted_at IS NULL')),
+        true,
+      );
+      const pendingSelect = selectCalls.find((s) => s.alias === 'pending')?.expr ?? '';
+      assert.strictEqual(
+        pendingSelect.includes('user.is_active = true') &&
+          pendingSelect.includes('user.must_change_password = true'),
+        true,
+      );
+    });
+
+    void it('defaults sortBy to createdAt and sortOrder to desc in userQuerySchema', () => {
+      const parsed = userQuerySchema.parse({});
+      assert.strictEqual(parsed.sortBy, 'createdAt');
+      assert.strictEqual(parsed.sortOrder, 'desc');
     });
   });
 });

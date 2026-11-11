@@ -17,14 +17,25 @@ export interface CreateUserData {
   updatedBy?: string | null;
 }
 
-export class UserRepository {
-  private readonly repo: Repository<User>;
-  private readonly historyRepo: Repository<UserRoleHistory>;
+export type UserListParams = Omit<UserQueryParams, 'sortBy' | 'sortOrder'> &
+  Partial<Pick<UserQueryParams, 'sortBy' | 'sortOrder'>>;
 
-  constructor(private readonly dataSource: DataSource = AppDataSource) {
-    this.repo = dataSource.getRepository(User);
-    this.historyRepo = dataSource.getRepository(UserRoleHistory);
+const PENDING_USER_STATUS_SQL =
+  'user.is_active = true AND (user.must_change_password = true OR user.last_login_at IS NULL)';
+const ACTIVE_USER_STATUS_SQL =
+  'user.is_active = true AND user.must_change_password = false AND user.last_login_at IS NOT NULL';
+const INACTIVE_USER_STATUS_SQL = 'user.is_active = false';
+
+export class UserRepository {
+  private get repo(): Repository<User> {
+    return this.dataSource.getRepository(User);
   }
+
+  private get historyRepo(): Repository<UserRoleHistory> {
+    return this.dataSource.getRepository(UserRoleHistory);
+  }
+
+  constructor(private readonly dataSource: DataSource = AppDataSource) {}
 
   public async transaction<T>(
     runInTransaction: (manager: EntityManager) => Promise<T>,
@@ -152,26 +163,48 @@ export class UserRepository {
     await this.getRepo(manager).increment({ id }, 'tokenVersion', 1);
   }
 
-  public async findAll(
-    params: UserQueryParams,
-    manager?: EntityManager,
-  ): Promise<[User[], number]> {
+  public async findAll(params: UserListParams, manager?: EntityManager): Promise<[User[], number]> {
     const query = this.getRepo(manager).createQueryBuilder('user').where('user.deleted_at IS NULL');
 
     if (params.role) {
-      query.andWhere('user.role = :role', { role: params.role });
+      if (Array.isArray(params.role)) {
+        if (params.role.length > 0) {
+          query.andWhere('user.role IN (:...roles)', { roles: params.role });
+        }
+      } else {
+        query.andWhere('user.role = :role', { role: params.role });
+      }
     }
 
     if (params.status) {
-      query.andWhere('user.is_active = :isActive', {
-        isActive: params.status === 'active',
-      });
+      const statuses = Array.isArray(params.status) ? params.status : [params.status];
+      const conditions: string[] = [];
+
+      if (statuses.includes('pending')) {
+        conditions.push(`(${PENDING_USER_STATUS_SQL})`);
+      }
+      if (statuses.includes('active')) {
+        conditions.push(`(${ACTIVE_USER_STATUS_SQL})`);
+      }
+      if (statuses.includes('inactive')) {
+        conditions.push(`(${INACTIVE_USER_STATUS_SQL})`);
+      }
+
+      if (conditions.length > 0) {
+        query.andWhere(`(${conditions.join(' OR ')})`);
+      }
     }
 
     if (params.search) {
-      query.andWhere('(user.name ILIKE :search OR user.email ILIKE :search)', {
-        search: `%${params.search}%`,
-      });
+      const escaped = params.search.trim().replace(/[%_\\]/g, '\\$&');
+      if (escaped.length > 0) {
+        query.andWhere(
+          `(user.name ILIKE :search ESCAPE '\\' OR user.email ILIKE :search ESCAPE '\\')`,
+          {
+            search: `%${escaped}%`,
+          },
+        );
+      }
     }
 
     if (params.batchId) {
@@ -228,11 +261,32 @@ export class UserRepository {
 
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(params.limit) || 10));
+    const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
-    query
-      .orderBy('user.created_at', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
+    if (params.sortBy === 'name') {
+      query.orderBy('LOWER(user.name)', safeSortOrder);
+    } else if (params.sortBy === 'email') {
+      query.orderBy('LOWER(user.email)', safeSortOrder);
+    } else if (params.sortBy === 'role') {
+      query.orderBy('user.role', safeSortOrder);
+    } else if (params.sortBy === 'status') {
+      const pendingOrder = safeSortOrder === 'ASC' ? 'DESC' : 'ASC';
+      query
+        .orderBy('user.is_active', safeSortOrder)
+        .addOrderBy(
+          '(user.must_change_password = true OR user.last_login_at IS NULL)',
+          pendingOrder,
+        );
+    } else {
+      query.orderBy('user.created_at', safeSortOrder);
+    }
+
+    if (params.sortBy && params.sortBy !== 'createdAt') {
+      query.addOrderBy('user.created_at', 'DESC');
+    }
+    query.addOrderBy('user.id', 'ASC');
+
+    query.skip((page - 1) * limit).take(limit);
 
     return await query.getManyAndCount();
   }
@@ -240,17 +294,28 @@ export class UserRepository {
   public async getCounts(manager?: EntityManager): Promise<{
     total: number;
     active: number;
+    pending: number;
     inactive: number;
   }> {
-    const repo = this.getRepo(manager);
-    const [total, active] = await Promise.all([
-      repo.count(),
-      repo.count({ where: { isActive: true } }),
-    ]);
+    const raw = await this.getRepo(manager)
+      .createQueryBuilder('user')
+      .select('COUNT(*)', 'total')
+      .addSelect(`COUNT(*) FILTER (WHERE ${ACTIVE_USER_STATUS_SQL})`, 'active')
+      .addSelect(`COUNT(*) FILTER (WHERE ${PENDING_USER_STATUS_SQL})`, 'pending')
+      .addSelect(`COUNT(*) FILTER (WHERE ${INACTIVE_USER_STATUS_SQL})`, 'inactive')
+      .where('user.deleted_at IS NULL')
+      .getRawOne<{
+        total?: string | number;
+        active?: string | number;
+        pending?: string | number;
+        inactive?: string | number;
+      }>();
+
     return {
-      total,
-      active,
-      inactive: Math.max(0, total - active),
+      total: Number(raw?.total ?? 0),
+      active: Number(raw?.active ?? 0),
+      pending: Number(raw?.pending ?? 0),
+      inactive: Number(raw?.inactive ?? 0),
     };
   }
 

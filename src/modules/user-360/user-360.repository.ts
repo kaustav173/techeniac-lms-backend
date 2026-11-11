@@ -7,21 +7,31 @@ import { Submission } from '../submissions';
 import { User, UserRoleHistory } from '../users';
 
 export class User360Repository {
-  private readonly userRepo: Repository<User>;
-  private readonly roleHistoryRepo: Repository<UserRoleHistory>;
-  private readonly batchMemberRepo: Repository<BatchMember>;
-  private readonly mentorMenteeRepo: Repository<MentorMentee>;
-  private readonly allocationRepo: Repository<CourseAllocation>;
-  private readonly submissionRepo: Repository<Submission>;
-
-  constructor(dataSource: DataSource = AppDataSource) {
-    this.userRepo = dataSource.getRepository(User);
-    this.roleHistoryRepo = dataSource.getRepository(UserRoleHistory);
-    this.batchMemberRepo = dataSource.getRepository(BatchMember);
-    this.mentorMenteeRepo = dataSource.getRepository(MentorMentee);
-    this.allocationRepo = dataSource.getRepository(CourseAllocation);
-    this.submissionRepo = dataSource.getRepository(Submission);
+  private get userRepo(): Repository<User> {
+    return this.dataSource.getRepository(User);
   }
+
+  private get roleHistoryRepo(): Repository<UserRoleHistory> {
+    return this.dataSource.getRepository(UserRoleHistory);
+  }
+
+  private get batchMemberRepo(): Repository<BatchMember> {
+    return this.dataSource.getRepository(BatchMember);
+  }
+
+  private get mentorMenteeRepo(): Repository<MentorMentee> {
+    return this.dataSource.getRepository(MentorMentee);
+  }
+
+  private get allocationRepo(): Repository<CourseAllocation> {
+    return this.dataSource.getRepository(CourseAllocation);
+  }
+
+  private get submissionRepo(): Repository<Submission> {
+    return this.dataSource.getRepository(Submission);
+  }
+
+  constructor(private readonly dataSource: DataSource = AppDataSource) {}
 
   public async getUser(userId: string): Promise<User | null> {
     return this.userRepo.findOne({

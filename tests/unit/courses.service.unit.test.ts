@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 
 import type { AuthenticatedUser } from '../../src/core/auth';
+import { AppDataSource } from '../../src/core/db';
 import { ConflictError, ForbiddenError, ValidationError } from '../../src/core/errors';
 import { sanitizeHtml } from '../../src/core/utils/sanitizer';
 import {
@@ -9,6 +10,7 @@ import {
   type Course,
   coursesRepository,
   coursesService,
+  listCoursesQuerySchema,
   resourceItemSchema,
   SubmissionMode,
   type Subtopic,
@@ -486,6 +488,117 @@ void describe('CoursesService Unit Tests', () => {
           return true;
         },
       );
+    });
+  });
+
+  void describe('Courses Query Schema & Repository Sorting', () => {
+    void it('parses topics/assignments/title sortBy values and defaults to createdAt desc', () => {
+      const defaults = listCoursesQuerySchema.shape.query.parse({});
+      assert.equal(defaults.sortBy, 'createdAt');
+      assert.equal(defaults.sortOrder, 'desc');
+
+      const assignments = listCoursesQuerySchema.shape.query.parse({
+        sortBy: 'assignments',
+        sortOrder: 'asc',
+      });
+      assert.equal(assignments.sortBy, 'assignments');
+      assert.equal(assignments.sortOrder, 'asc');
+
+      const legacyTasks = listCoursesQuerySchema.shape.query.safeParse({ sortBy: 'tasks' });
+      assert.equal(legacyTasks.success, false);
+
+      const invalid = listCoursesQuerySchema.shape.query.safeParse({ sortBy: 'invalid' });
+      assert.equal(invalid.success, false);
+    });
+
+    void it('uses two-step ID query for topics and title sorting and preserves ID order', async () => {
+      const originalGetRepo = AppDataSource.getRepository.bind(AppDataSource);
+      const orderBys: Array<{ column: string; order?: string }> = [];
+      let callCount = 0;
+
+      const makeQb = (rawRows: unknown[]) => {
+        const qb = {
+          select: () => qb,
+          addSelect: () => qb,
+          leftJoin: () => qb,
+          where: () => qb,
+          andWhere: () => qb,
+          groupBy: () => qb,
+          orderBy: (column: string, order?: string) => {
+            orderBys.push({ column, order });
+            return qb;
+          },
+          addOrderBy: (column: string, order?: string) => {
+            orderBys.push({ column, order });
+            return qb;
+          },
+          offset: () => qb,
+          limit: () => qb,
+          whereInIds: () => qb,
+          getCount: () => Promise.resolve(2),
+          getRawMany: () => Promise.resolve(rawRows),
+          getMany: () =>
+            Promise.resolve([
+              { id: 'c-1', title: 'alpha' } as Course,
+              { id: 'c-2', title: 'Beta' } as Course,
+            ]),
+        };
+        return qb;
+      };
+
+      (
+        AppDataSource as unknown as { getRepository: (target: { name?: string }) => unknown }
+      ).getRepository = (target: { name?: string }) => ({
+        createQueryBuilder: () => {
+          callCount++;
+          if (target?.name === 'Topic') {
+            return makeQb([{ courseId: 'c-2', count: '3' }]);
+          }
+          if (target?.name === 'Assignment') {
+            return makeQb([{ courseId: 'c-2', count: '5' }]);
+          }
+          // Course queries: 1=count, 2=idQb, 3=loadedCourses
+          return makeQb(callCount === 2 ? [{ id: 'c-2' }, { id: 'c-1' }] : []);
+        },
+      });
+
+      try {
+        const result = await coursesRepository.listCourses({
+          page: 1,
+          limit: 10,
+          sortBy: 'topics',
+          sortOrder: 'desc',
+        });
+
+        assert.equal(result.total, 2);
+        assert.deepEqual(
+          result.items.map((c) => c.id),
+          ['c-2', 'c-1'],
+        );
+        assert.equal(result.items[0]?.topicCount, 3);
+        assert.equal(result.items[0]?.assignmentCount, 5);
+        assert.deepEqual(orderBys, [
+          { column: 'COUNT(t.id)', order: 'DESC' },
+          { column: 'course.createdAt', order: 'DESC' },
+          { column: 'course.id', order: 'ASC' },
+        ]);
+
+        orderBys.length = 0;
+        callCount = 0;
+        await coursesRepository.listCourses({
+          page: 1,
+          limit: 10,
+          sortBy: 'title',
+          sortOrder: 'asc',
+        });
+        assert.deepEqual(orderBys, [
+          { column: 'LOWER(course.title)', order: 'ASC' },
+          { column: 'course.createdAt', order: 'DESC' },
+          { column: 'course.id', order: 'ASC' },
+        ]);
+      } finally {
+        AppDataSource.getRepository = originalGetRepo;
+      }
     });
   });
 });
