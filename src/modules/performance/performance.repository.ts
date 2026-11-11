@@ -330,7 +330,11 @@ export class PerformanceRepository {
 
     const canPrePaginate =
       (!filter.gradeRange || filter.gradeRange === 'ALL') &&
-      (!filter.sortBy || filter.sortBy === 'name' || filter.sortBy === 'completionPercentage');
+      (!filter.sortBy ||
+        filter.sortBy === 'name' ||
+        filter.sortBy === 'completionPercentage' ||
+        filter.sortBy === 'batch' ||
+        filter.sortBy === 'courses');
 
     const order = filter.sortOrder === 'ASC' ? 1 : -1;
     const totalRaw = rawRows.length;
@@ -341,10 +345,31 @@ export class PerformanceRepository {
         targetRows.sort(
           (a, b) =>
             ((parseFloat(a.avg_progress ?? '0') || 0) - (parseFloat(b.avg_progress ?? '0') || 0)) *
-            order,
+              order ||
+            a.mentee_name.localeCompare(b.mentee_name) ||
+            a.mentee_id.localeCompare(b.mentee_id),
+        );
+      } else if (filter.sortBy === 'batch') {
+        targetRows.sort(
+          (a, b) =>
+            (a.batch_name ?? '').localeCompare(b.batch_name ?? '') * order ||
+            a.mentee_name.localeCompare(b.mentee_name) ||
+            a.mentee_id.localeCompare(b.mentee_id),
+        );
+      } else if (filter.sortBy === 'courses') {
+        targetRows.sort(
+          (a, b) =>
+            (parseInt(a.assigned_courses_count, 10) - parseInt(b.assigned_courses_count, 10)) *
+              order ||
+            a.mentee_name.localeCompare(b.mentee_name) ||
+            a.mentee_id.localeCompare(b.mentee_id),
         );
       } else {
-        targetRows.sort((a, b) => a.mentee_name.localeCompare(b.mentee_name) * order);
+        targetRows.sort(
+          (a, b) =>
+            a.mentee_name.localeCompare(b.mentee_name) * order ||
+            a.mentee_id.localeCompare(b.mentee_id),
+        );
       }
 
       const startIndex = (filter.page - 1) * filter.limit;
@@ -520,19 +545,41 @@ export class PerformanceRepository {
 
     // Sorting (PER-02)
     enrichedRows.sort((a, b) => {
+      let cmp = 0;
       switch (filter.sortBy) {
         case 'averageMarks':
-          return ((a.averageMarks ?? 0) - (b.averageMarks ?? 0)) * order;
+          cmp = ((a.averageMarks ?? 0) - (b.averageMarks ?? 0)) * order;
+          break;
         case 'completionPercentage':
-          return (a.completionPercentage - b.completionPercentage) * order;
+          cmp = (a.completionPercentage - b.completionPercentage) * order;
+          break;
         case 'onTimeRate':
-          return (a.onTimeRate - b.onTimeRate) * order;
+          cmp = (a.onTimeRate - b.onTimeRate) * order;
+          break;
         case 'overdueCount':
-          return (a.overdueCount - b.overdueCount) * order;
+          cmp = (a.overdueCount - b.overdueCount) * order;
+          break;
+        case 'batch':
+          cmp = (a.batchName ?? '').localeCompare(b.batchName ?? '') * order;
+          break;
+        case 'courses':
+          cmp = (a.assignedCoursesCount - b.assignedCoursesCount) * order;
+          break;
+        case 'grade': {
+          const gradeRank: Record<string, number> = { 'A+': 5, A: 4, B: 3, C: 2, D: 1, F: 0 };
+          const rankA = a.latestGrade ? (gradeRank[a.latestGrade] ?? -1) : -1;
+          const rankB = b.latestGrade ? (gradeRank[b.latestGrade] ?? -1) : -1;
+          cmp = (rankA - rankB) * order;
+          break;
+        }
         case 'name':
         default:
-          return a.menteeName.localeCompare(b.menteeName) * order;
+          cmp = a.menteeName.localeCompare(b.menteeName) * order;
+          break;
       }
+      return (
+        cmp || a.menteeName.localeCompare(b.menteeName) || a.menteeId.localeCompare(b.menteeId)
+      );
     });
 
     const total = enrichedRows.length;
