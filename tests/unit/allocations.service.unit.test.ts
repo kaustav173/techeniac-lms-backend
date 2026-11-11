@@ -4,6 +4,7 @@ import { beforeEach, describe, it } from 'node:test';
 import { QueryFailedError } from 'typeorm';
 
 import type { AuthenticatedUser } from '../../src/core/auth';
+import { AppDataSource } from '../../src/core/db';
 import { emailService } from '../../src/core/email';
 import {
   ConflictError,
@@ -12,6 +13,7 @@ import {
   ValidationError,
 } from '../../src/core/errors';
 import {
+  AllocationsRepository,
   allocationsRepository,
   allocationsService,
   AssignmentDueOverride,
@@ -1355,6 +1357,70 @@ void describe('AllocationsService Unit Tests (PRD M7: ALC-01 to ALC-24)', () => 
       const parsed = listAllocationsQuerySchema.shape.query.parse({});
       assert.equal(parsed.limit, 10);
       assert.equal(parsed.page, 1);
+    });
+
+    void it('parses valid sortBy and sortOrder in listAllocationsQuerySchema', () => {
+      const parsed = listAllocationsQuerySchema.shape.query.parse({
+        sortBy: 'course',
+        sortOrder: 'asc',
+      });
+      assert.equal(parsed.sortBy, 'course');
+      assert.equal(parsed.sortOrder, 'asc');
+
+      const invalid = listAllocationsQuerySchema.shape.query.safeParse({ sortBy: 'invalid' });
+      assert.equal(invalid.success, false);
+    });
+
+    void it('orders listAllocations case-insensitively with offset/limit, default desc, and tie-breakers', async () => {
+      const originalGetRepo = AppDataSource.getRepository.bind(AppDataSource);
+      const orderBys: Array<{ column: string; order?: string; nulls?: string }> = [];
+      let capturedOffset: number | undefined;
+      let capturedLimit: number | undefined;
+
+      const qb = {
+        leftJoinAndSelect: () => qb,
+        andWhere: () => qb,
+        orderBy: (column: string, order?: string, nulls?: string) => {
+          orderBys.push({ column, order, nulls });
+          return qb;
+        },
+        addOrderBy: (column: string, order?: string) => {
+          orderBys.push({ column, order });
+          return qb;
+        },
+        offset: (val: number) => {
+          capturedOffset = val;
+          return qb;
+        },
+        limit: (val: number) => {
+          capturedLimit = val;
+          return qb;
+        },
+        getManyAndCount: () => Promise.resolve([[], 0] as [CourseAllocation[], number]),
+      };
+
+      (AppDataSource as unknown as { getRepository: () => unknown }).getRepository = () => ({
+        createQueryBuilder: () => qb,
+      });
+
+      try {
+        const repo = new AllocationsRepository();
+        await repo.listAllocations({
+          page: 2,
+          limit: 15,
+          sortBy: 'course',
+        });
+
+        assert.equal(capturedOffset, 15);
+        assert.equal(capturedLimit, 15);
+        assert.deepEqual(orderBys, [
+          { column: 'LOWER(course.title)', order: 'DESC', nulls: 'NULLS LAST' },
+          { column: 'allocation.createdAt', order: 'DESC' },
+          { column: 'allocation.id', order: 'ASC' },
+        ]);
+      } finally {
+        AppDataSource.getRepository = originalGetRepo;
+      }
     });
   });
 });

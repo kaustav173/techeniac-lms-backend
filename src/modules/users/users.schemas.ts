@@ -28,43 +28,43 @@ export const userIdParamsSchema = z.object({
   id: z.string().uuid('Invalid user ID format'),
 });
 
+function parseDelimitedParam(val: unknown, normalize: (value: string) => string): unknown {
+  if (typeof val === 'string') {
+    const parts = val
+      .split(',')
+      .map((s) => normalize(s.trim()))
+      .filter(Boolean);
+    if (parts.length === 0) return undefined;
+    return parts.length === 1 ? parts[0] : parts;
+  }
+  if (Array.isArray(val)) {
+    const parts = val
+      .flatMap((v) => (typeof v === 'string' ? v.split(',') : []))
+      .map((s) => normalize(s.trim()))
+      .filter(Boolean);
+    return parts.length > 0 ? parts : undefined;
+  }
+  return val;
+}
+
 export const userQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
   role: z
     .preprocess(
-      (val) => {
-        if (typeof val === 'string' && val.includes(',')) {
-          const parts = val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean);
-          return parts.length > 0 ? parts : undefined;
-        }
-        return val;
-      },
-      z.union([userRoleSchema, z.array(userRoleSchema)]),
+      (val) => parseDelimitedParam(val, (s) => s.toUpperCase()),
+      z.union([userRoleSchema, z.array(userRoleSchema)]).optional(),
     )
     .optional(),
   status: z
     .preprocess(
-      (val) => {
-        if (typeof val === 'string' && val.includes(',')) {
-          const parts = val
-            .split(',')
-            .map((s) => s.trim().toLowerCase())
-            .filter(Boolean);
-          return parts.length > 0 ? parts : undefined;
-        }
-        if (typeof val === 'string') {
-          return val.toLowerCase();
-        }
-        return val;
-      },
-      z.union([
-        z.enum(['active', 'inactive', 'pending']),
-        z.array(z.enum(['active', 'inactive', 'pending'])),
-      ]),
+      (val) => parseDelimitedParam(val, (s) => s.toLowerCase()),
+      z
+        .union([
+          z.enum(['active', 'inactive', 'pending']),
+          z.array(z.enum(['active', 'inactive', 'pending'])),
+        ])
+        .optional(),
     )
     .optional(),
   search: z.string().trim().max(100).optional(),

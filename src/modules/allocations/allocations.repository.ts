@@ -273,27 +273,24 @@ export class AllocationsRepository {
       );
     }
 
-    if (query.sortBy === 'course') {
-      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
-      qb.orderBy('course.title', safeSortOrder, 'NULLS LAST');
-    } else if (query.sortBy === 'mentee') {
-      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
-      qb.orderBy('user.name', safeSortOrder, 'NULLS LAST');
-    } else if (query.sortBy === 'batch') {
-      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
-      qb.orderBy('batch.name', safeSortOrder, 'NULLS LAST');
-    } else if (query.sortBy === 'startDate') {
-      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
-      qb.orderBy('allocation.startDate', safeSortOrder, 'NULLS LAST');
-    } else if (query.sortBy === 'dueDate') {
-      const safeSortOrder = (query.sortOrder || 'asc').toUpperCase() as 'ASC' | 'DESC';
-      qb.orderBy('allocation.dueDate', safeSortOrder, 'NULLS LAST');
-    } else {
-      const safeSortOrder = (query.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
-      qb.orderBy('allocation.createdAt', safeSortOrder);
+    const sortColumns: Record<string, string> = {
+      course: 'LOWER(course.title)',
+      mentee: 'LOWER(user.name)',
+      batch: 'LOWER(batch.name)',
+      startDate: 'allocation.startDate',
+      dueDate: 'allocation.dueDate',
+      createdAt: 'allocation.createdAt',
+    };
+    const sortBy = query.sortBy ?? 'createdAt';
+    const sortColumn = sortColumns[sortBy] ?? 'allocation.createdAt';
+    const safeSortOrder = (query.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
+
+    qb.orderBy(sortColumn, safeSortOrder, 'NULLS LAST');
+    if (sortColumn !== 'allocation.createdAt') {
+      qb.addOrderBy('allocation.createdAt', 'DESC');
     }
-    qb.skip((query.page - 1) * query.limit);
-    qb.take(query.limit);
+    qb.addOrderBy('allocation.id', 'ASC');
+    qb.offset((query.page - 1) * query.limit).limit(query.limit);
 
     const [allocations, total] = await qb.getManyAndCount();
 

@@ -79,6 +79,29 @@ export class CoursesRepository {
     return course;
   }
 
+  private applyCourseFilters(
+    targetQb: ReturnType<CoursesRepository['courseRepo']['createQueryBuilder']>,
+    options?: { search?: string; isActive?: boolean },
+  ) {
+    targetQb.where('course.deletedAt IS NULL');
+
+    if (options?.isActive !== undefined) {
+      targetQb.andWhere('course.isActive = :isActive', { isActive: options.isActive });
+    }
+
+    if (options?.search) {
+      const escaped = options.search.replace(/[%_\\]/g, '\\$&');
+      targetQb.andWhere(
+        `(course.title ILIKE :search ESCAPE '\\' OR course.description ILIKE :search ESCAPE '\\')`,
+        {
+          search: `%${escaped}%`,
+        },
+      );
+    }
+
+    return targetQb;
+  }
+
   async listCourses(options?: {
     page?: number;
     limit?: number;
@@ -91,75 +114,46 @@ export class CoursesRepository {
     const limit = options?.limit && options.limit > 0 ? options.limit : 10;
     const sortBy = options?.sortBy ?? 'createdAt';
     const sortOrder = options?.sortOrder ?? 'desc';
-
-    const qb = this.courseRepo
-      .createQueryBuilder('course')
-      .leftJoin('course.creator', 'creator')
-      .addSelect(['creator.id', 'creator.name'])
-      .where('course.deletedAt IS NULL');
-
-    if (options?.isActive !== undefined) {
-      qb.andWhere('course.isActive = :isActive', { isActive: options.isActive });
-    }
-
-    if (options?.search) {
-      const escaped = options.search.replace(/[%_\\]/g, '\\$&');
-      qb.andWhere(
-        `(course.title ILIKE :search ESCAPE '\\' OR course.description ILIKE :search ESCAPE '\\')`,
-        {
-          search: `%${escaped}%`,
-        },
-      );
-    }
-
     const safeSortOrder = (sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
     let items: Course[];
     let total: number;
 
-    if (sortBy === 'topics' || sortBy === 'tasks') {
-      total = await qb.getCount();
+    if (sortBy === 'topics' || sortBy === 'tasks' || sortBy === 'title') {
+      total = await this.applyCourseFilters(
+        this.courseRepo.createQueryBuilder('course'),
+        options,
+      ).getCount();
       if (total === 0) {
         return { items: [], total: 0 };
       }
 
-      const idQb = this.courseRepo
-        .createQueryBuilder('course')
-        .select('course.id', 'id')
-        .where('course.deletedAt IS NULL');
-
-      if (options?.isActive !== undefined) {
-        idQb.andWhere('course.isActive = :isActive', { isActive: options.isActive });
-      }
-
-      if (options?.search) {
-        const escaped = options.search.replace(/[%_\\]/g, '\\$&');
-        idQb.andWhere(
-          `(course.title ILIKE :search ESCAPE '\\' OR course.description ILIKE :search ESCAPE '\\')`,
-          {
-            search: `%${escaped}%`,
-          },
-        );
-      }
+      const idQb = this.applyCourseFilters(
+        this.courseRepo.createQueryBuilder('course').select('course.id', 'id'),
+        options,
+      );
 
       if (sortBy === 'topics') {
         idQb
           .leftJoin('topics', 't', 't.course_id = course.id AND t.deleted_at IS NULL')
           .groupBy('course.id')
           .orderBy('COUNT(t.id)', safeSortOrder, 'NULLS LAST');
-      } else {
+      } else if (sortBy === 'tasks') {
         idQb
           .leftJoin('assignments', 'a', 'a.course_id = course.id AND a.deleted_at IS NULL')
           .groupBy('course.id')
           .orderBy('COUNT(a.id)', safeSortOrder, 'NULLS LAST');
+      } else {
+        idQb.orderBy('LOWER(course.title)', safeSortOrder);
       }
 
       idQb
         .addOrderBy('course.createdAt', 'DESC')
+        .addOrderBy('course.id', 'ASC')
         .offset((page - 1) * limit)
         .limit(limit);
 
-      const idResults: Array<{ id: string }> = await idQb.getRawMany();
+      const idResults = await idQb.getRawMany<{ id: string }>();
       const ids = idResults.map((r) => r.id);
 
       if (ids.length === 0) {
@@ -176,13 +170,20 @@ export class CoursesRepository {
       const courseMap = new Map(loadedCourses.map((c) => [c.id, c]));
       items = ids.map((id) => courseMap.get(id)).filter((c): c is Course => Boolean(c));
     } else {
-      if (sortBy === 'title') {
-        qb.orderBy('course.title', safeSortOrder);
-      } else if (sortBy === 'updatedAt') {
-        qb.orderBy('course.updatedAt', safeSortOrder);
+      const qb = this.applyCourseFilters(
+        this.courseRepo
+          .createQueryBuilder('course')
+          .leftJoin('course.creator', 'creator')
+          .addSelect(['creator.id', 'creator.name']),
+        options,
+      );
+
+      if (sortBy === 'updatedAt') {
+        qb.orderBy('course.updatedAt', safeSortOrder).addOrderBy('course.createdAt', 'DESC');
       } else {
         qb.orderBy('course.createdAt', safeSortOrder);
       }
+      qb.addOrderBy('course.id', 'ASC');
 
       qb.skip((page - 1) * limit).take(limit);
 

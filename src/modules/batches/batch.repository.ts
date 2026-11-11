@@ -155,6 +155,42 @@ export class BatchRepository {
     return updated;
   }
 
+  private applyBatchFilters(
+    targetQb: SelectQueryBuilder<Batch>,
+    params: BatchQueryParams,
+    mentorId?: string,
+  ): SelectQueryBuilder<Batch> {
+    if (mentorId) {
+      targetQb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM batch_members mbm
+          WHERE mbm.batch_id = batch.id
+            AND mbm.user_id = :mentorId
+            AND mbm.member_role = :mentorRole
+            AND mbm.is_active = true
+            AND mbm.deleted_at IS NULL
+        )`,
+        { mentorId, mentorRole: BatchMemberRole.MENTOR },
+      );
+    }
+
+    if (params.status && params.status.length > 0) {
+      targetQb.andWhere('batch.status IN (:...statuses)', { statuses: params.status });
+    }
+
+    if (params.search) {
+      const escaped = params.search.trim().replace(/[%_\\]/g, '\\$&');
+      if (escaped.length > 0) {
+        targetQb.andWhere(
+          `(batch.name ILIKE :search ESCAPE '\\' OR batch.code ILIKE :search ESCAPE '\\')`,
+          { search: `%${escaped}%` },
+        );
+      }
+    }
+
+    return targetQb;
+  }
+
   public async findWithFilters(
     params: BatchQueryParams,
     mentorId?: string,
@@ -162,86 +198,41 @@ export class BatchRepository {
     items: BatchWithCounts[];
     total: number;
   }> {
-    const qb: SelectQueryBuilder<Batch> = this.batchRepo
-      .createQueryBuilder('batch')
-      .leftJoinAndSelect('batch.creator', 'creator')
-      .loadRelationCountAndMap('batch.mentorsCount', 'batch.members', 'mentor', (subQb) =>
-        subQb.where('mentor.member_role = :mentorRole AND mentor.is_active = true', {
-          mentorRole: BatchMemberRole.MENTOR,
-        }),
-      )
-      .loadRelationCountAndMap('batch.menteesCount', 'batch.members', 'mentee', (subQb) =>
-        subQb.where('mentee.member_role = :menteeRole AND mentee.is_active = true', {
-          menteeRole: BatchMemberRole.MENTEE,
-        }),
-      );
-
-    if (mentorId) {
-      qb.andWhere(
-        `EXISTS (
-          SELECT 1 FROM batch_members bm
-          WHERE bm.batch_id = batch.id
-            AND bm.user_id = :mentorId
-            AND bm.member_role = :mentorRole
-            AND bm.is_active = true
-            AND bm.deleted_at IS NULL
-        )`,
-        { mentorId, mentorRole: BatchMemberRole.MENTOR },
-      );
-    }
-
-    if (params.status && params.status.length > 0) {
-      qb.andWhere('batch.status IN (:...statuses)', { statuses: params.status });
-    }
-
-    if (params.search) {
-      const search = `%${params.search.trim()}%`;
-      qb.andWhere('(batch.name ILIKE :search OR batch.code ILIKE :search)', { search });
-    }
-
     const page = params.page ?? 1;
     const limit = params.limit ?? 10;
     const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
-    // If sorting by members, use an explicit two-step ID query to avoid TypeORM pagination distinctAlias bug
-    if (params.sortBy === 'members') {
-      const total = await qb.getCount();
+    // Use a two-step ID query for aggregate or case-insensitive text sorting to avoid TypeORM distinctAlias issues
+    if (params.sortBy === 'members' || params.sortBy === 'name' || params.sortBy === 'code') {
+      const total = await this.applyBatchFilters(
+        this.batchRepo.createQueryBuilder('batch'),
+        params,
+        mentorId,
+      ).getCount();
       if (total === 0) {
         return { items: [], total: 0 };
       }
 
-      const idQb = this.batchRepo
-        .createQueryBuilder('batch')
-        .select('batch.id', 'id')
-        .leftJoin('batch.members', 'bm', 'bm.is_active = true AND bm.deleted_at IS NULL');
+      const idQb = this.applyBatchFilters(
+        this.batchRepo.createQueryBuilder('batch').select('batch.id', 'id'),
+        params,
+        mentorId,
+      );
 
-      if (mentorId) {
-        idQb.andWhere(
-          `EXISTS (
-            SELECT 1 FROM batch_members mbm
-            WHERE mbm.batch_id = batch.id
-              AND mbm.user_id = :mentorId
-              AND mbm.member_role = :mentorRole
-              AND mbm.is_active = true
-              AND mbm.deleted_at IS NULL
-          )`,
-          { mentorId, mentorRole: BatchMemberRole.MENTOR },
-        );
-      }
-
-      if (params.status && params.status.length > 0) {
-        idQb.andWhere('batch.status IN (:...statuses)', { statuses: params.status });
-      }
-
-      if (params.search) {
-        const search = `%${params.search.trim()}%`;
-        idQb.andWhere('(batch.name ILIKE :search OR batch.code ILIKE :search)', { search });
+      if (params.sortBy === 'members') {
+        idQb
+          .leftJoin('batch.members', 'bm', 'bm.is_active = true AND bm.deleted_at IS NULL')
+          .groupBy('batch.id')
+          .orderBy('COUNT(bm.id)', safeSortOrder, 'NULLS LAST');
+      } else if (params.sortBy === 'name') {
+        idQb.orderBy('LOWER(batch.name)', safeSortOrder, 'NULLS LAST');
+      } else {
+        idQb.orderBy('LOWER(batch.code)', safeSortOrder, 'NULLS LAST');
       }
 
       idQb
-        .groupBy('batch.id')
-        .orderBy('COUNT(bm.id)', safeSortOrder, 'NULLS LAST')
         .addOrderBy('batch.createdAt', 'DESC')
+        .addOrderBy('batch.id', 'ASC')
         .offset((page - 1) * limit)
         .limit(limit);
 
@@ -282,11 +273,25 @@ export class BatchRepository {
       return { items: itemsWithCounts, total };
     }
 
-    if (params.sortBy === 'name') {
-      qb.orderBy('batch.name', safeSortOrder, 'NULLS LAST');
-    } else if (params.sortBy === 'code') {
-      qb.orderBy('batch.code', safeSortOrder, 'NULLS LAST');
-    } else if (params.sortBy === 'status') {
+    const qb: SelectQueryBuilder<Batch> = this.applyBatchFilters(
+      this.batchRepo
+        .createQueryBuilder('batch')
+        .leftJoinAndSelect('batch.creator', 'creator')
+        .loadRelationCountAndMap('batch.mentorsCount', 'batch.members', 'mentor', (subQb) =>
+          subQb.where('mentor.member_role = :mentorRole AND mentor.is_active = true', {
+            mentorRole: BatchMemberRole.MENTOR,
+          }),
+        )
+        .loadRelationCountAndMap('batch.menteesCount', 'batch.members', 'mentee', (subQb) =>
+          subQb.where('mentee.member_role = :menteeRole AND mentee.is_active = true', {
+            menteeRole: BatchMemberRole.MENTEE,
+          }),
+        ),
+      params,
+      mentorId,
+    );
+
+    if (params.sortBy === 'status') {
       qb.orderBy('batch.status', safeSortOrder, 'NULLS LAST');
     } else if (params.sortBy === 'startDate') {
       qb.orderBy('batch.startDate', safeSortOrder, 'NULLS LAST');
@@ -295,6 +300,11 @@ export class BatchRepository {
     } else {
       qb.orderBy('batch.createdAt', safeSortOrder, 'NULLS LAST');
     }
+
+    if (params.sortBy && params.sortBy !== 'createdAt') {
+      qb.addOrderBy('batch.createdAt', 'DESC');
+    }
+    qb.addOrderBy('batch.id', 'ASC');
 
     qb.skip((page - 1) * limit).take(limit);
 

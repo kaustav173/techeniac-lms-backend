@@ -175,7 +175,9 @@ export class UserRepository {
       const conditions: string[] = [];
 
       if (statuses.includes('pending')) {
-        conditions.push('(user.must_change_password = true OR user.last_login_at IS NULL)');
+        conditions.push(
+          '(user.is_active = true AND (user.must_change_password = true OR user.last_login_at IS NULL))',
+        );
       }
       if (statuses.includes('active')) {
         conditions.push(
@@ -192,9 +194,15 @@ export class UserRepository {
     }
 
     if (params.search) {
-      query.andWhere('(user.name ILIKE :search OR user.email ILIKE :search)', {
-        search: `%${params.search}%`,
-      });
+      const escaped = params.search.trim().replace(/[%_\\]/g, '\\$&');
+      if (escaped.length > 0) {
+        query.andWhere(
+          `(user.name ILIKE :search ESCAPE '\\' OR user.email ILIKE :search ESCAPE '\\')`,
+          {
+            search: `%${escaped}%`,
+          },
+        );
+      }
     }
 
     if (params.batchId) {
@@ -260,10 +268,21 @@ export class UserRepository {
     } else if (params.sortBy === 'role') {
       query.orderBy('user.role', safeSortOrder);
     } else if (params.sortBy === 'status') {
-      query.orderBy('user.is_active', safeSortOrder);
+      const pendingOrder = safeSortOrder === 'ASC' ? 'DESC' : 'ASC';
+      query
+        .orderBy('user.is_active', safeSortOrder)
+        .addOrderBy(
+          '(user.must_change_password = true OR user.last_login_at IS NULL)',
+          pendingOrder,
+        );
     } else {
       query.orderBy('user.created_at', safeSortOrder);
     }
+
+    if (params.sortBy && params.sortBy !== 'createdAt') {
+      query.addOrderBy('user.created_at', 'DESC');
+    }
+    query.addOrderBy('user.id', 'ASC');
 
     query.skip((page - 1) * limit).take(limit);
 
