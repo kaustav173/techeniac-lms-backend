@@ -16,6 +16,7 @@ import {
   Subtopic,
   Topic,
 } from './entities';
+import type { ListCoursesQueryInput } from './schemas/courses.schemas';
 
 // Duration calculation & budget formatting helpers (M6-DUP-1)
 function sumMinutes(items?: Array<{ estimatedMinutes?: number | null }>): number {
@@ -145,14 +146,7 @@ export class CoursesService {
     return course;
   }
 
-  async listCourses(options?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    isActive?: boolean;
-    sortBy?: 'createdAt' | 'title' | 'updatedAt';
-    sortOrder?: 'asc' | 'desc';
-  }) {
+  async listCourses(options?: Partial<ListCoursesQueryInput>) {
     return await coursesRepository.listCourses(options);
   }
 

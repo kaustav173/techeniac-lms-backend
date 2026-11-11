@@ -428,11 +428,25 @@ export class ProgressService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
+    const statuses =
+      query.statuses && query.statuses.length > 0
+        ? query.statuses
+        : query.status
+          ? [query.status]
+          : undefined;
+
     const { allocations, total } = await this.repository.listTrackers({
       batchId: query.batchId,
+      batchIds: query.batchIds,
       menteeId: query.menteeId,
+      menteeIds: query.menteeIds,
       courseId: query.courseId,
+      courseIds: query.courseIds,
       mentorId: isMentor ? actor.id : undefined,
+      statuses,
+      isOverdue: query.isOverdue,
+      sortField: query.sortField,
+      sortOrder: query.sortOrder,
       search: query.search,
       page,
       limit,

@@ -14,12 +14,6 @@ import type {
 } from './schemas/dashboard.schemas';
 
 export class DashboardRepository {
-  private readonly dataSource: DataSource;
-
-  constructor(dataSource: DataSource = AppDataSource) {
-    this.dataSource = dataSource;
-  }
-
   private get userRepo(): Repository<User> {
     return this.dataSource.getRepository(User);
   }
@@ -55,6 +49,8 @@ export class DashboardRepository {
   private get overrideRepo(): Repository<AssignmentDueOverride> {
     return this.dataSource.getRepository(AssignmentDueOverride);
   }
+
+  constructor(private readonly dataSource: DataSource = AppDataSource) {}
 
   public async getAdminMetrics(): Promise<AdminDashboardResponse> {
     const [

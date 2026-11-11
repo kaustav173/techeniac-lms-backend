@@ -204,7 +204,8 @@ export class AllocationsRepository {
   }
 
   async listAllocations(
-    query: ListAllocationsQuery,
+    query: Omit<ListAllocationsQuery, 'sortBy' | 'sortOrder'> &
+      Partial<Pick<ListAllocationsQuery, 'sortBy' | 'sortOrder'>>,
     allowedBatchIds?: string[] | null,
     enforcedUserId?: string | null,
   ): Promise<AllocationListResult> {
@@ -273,9 +274,24 @@ export class AllocationsRepository {
       );
     }
 
-    qb.orderBy('allocation.createdAt', 'DESC');
-    qb.skip((query.page - 1) * query.limit);
-    qb.take(query.limit);
+    const sortColumns: Record<string, string> = {
+      course: 'LOWER(course.title)',
+      mentee: 'LOWER(user.name)',
+      batch: 'LOWER(batch.name)',
+      startDate: 'allocation.startDate',
+      dueDate: 'allocation.dueDate',
+      createdAt: 'allocation.createdAt',
+    };
+    const sortBy = query.sortBy ?? 'createdAt';
+    const sortColumn = sortColumns[sortBy] ?? 'allocation.createdAt';
+    const safeSortOrder = (query.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
+
+    qb.orderBy(sortColumn, safeSortOrder, 'NULLS LAST');
+    if (sortColumn !== 'allocation.createdAt') {
+      qb.addOrderBy('allocation.createdAt', 'DESC');
+    }
+    qb.addOrderBy('allocation.id', 'ASC');
+    qb.offset((query.page - 1) * query.limit).limit(query.limit);
 
     const [allocations, total] = await qb.getManyAndCount();
 

@@ -164,6 +164,10 @@ export const batchQuerySchema = z.object({
         }
         return undefined;
       }),
+    sortBy: z
+      .enum(['name', 'code', 'status', 'createdAt', 'startDate', 'endDate', 'members'])
+      .default('createdAt'),
+    sortOrder: z.enum(['asc', 'desc']).default('desc'),
   }),
 });
 
