@@ -23,7 +23,16 @@ export const performanceFilterSchema = z.object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
     sortBy: z
-      .enum(['averageMarks', 'completionPercentage', 'onTimeRate', 'overdueCount', 'name'])
+      .enum([
+        'averageMarks',
+        'completionPercentage',
+        'onTimeRate',
+        'overdueCount',
+        'name',
+        'batch',
+        'courses',
+        'grade',
+      ])
       .optional()
       .default('name'),
     sortOrder: z
@@ -53,7 +62,16 @@ export const exportPerformanceSchema = z.object({
     status: z.nativeEnum(CourseAllocationStatus).optional(),
     search: z.string().trim().optional(),
     sortBy: z
-      .enum(['averageMarks', 'completionPercentage', 'onTimeRate', 'overdueCount', 'name'])
+      .enum([
+        'averageMarks',
+        'completionPercentage',
+        'onTimeRate',
+        'overdueCount',
+        'name',
+        'batch',
+        'courses',
+        'grade',
+      ])
       .optional()
       .default('name'),
     sortOrder: z
