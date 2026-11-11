@@ -26,6 +26,18 @@ const commaSeparatedUuidsSchema = z
   .pipe(z.array(z.string().uuid('Invalid UUID format')))
   .optional();
 
+const commaSeparatedStringsSchema = z
+  .union([
+    z.string().transform((val) =>
+      val
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+    z.array(z.string()),
+  ])
+  .optional();
+
 export const trackerQuerySchema = z.object({
   batchId: z.string().uuid().optional(),
   batchIds: commaSeparatedUuidsSchema,
@@ -33,6 +45,11 @@ export const trackerQuerySchema = z.object({
   menteeIds: commaSeparatedUuidsSchema,
   courseId: z.string().uuid().optional(),
   courseIds: commaSeparatedUuidsSchema,
+  status: z.string().trim().optional(),
+  statuses: commaSeparatedStringsSchema,
+  isOverdue: z.coerce.boolean().optional(),
+  sortField: z.enum(['menteeName', 'createdAt']).optional().default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional().default('desc'),
   search: z.string().trim().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),

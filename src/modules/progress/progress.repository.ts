@@ -181,6 +181,10 @@ export class ProgressRepository {
     menteeIds?: string[];
     courseIds?: string[];
     mentorId?: string;
+    statuses?: string[];
+    isOverdue?: boolean;
+    sortField?: 'menteeName' | 'createdAt';
+    sortOrder?: 'asc' | 'desc' | 'ASC' | 'DESC';
     search?: string;
     page?: number;
     limit?: number;
@@ -234,14 +238,106 @@ export class ProgressRepository {
       qb.andWhere('alloc.courseId IN (:...courseIds)', { courseIds: options.courseIds });
     }
 
-    if (options.search) {
-      qb.andWhere(
-        '(course.title ILIKE :search OR user.name ILIKE :search OR user.email ILIKE :search OR batch.name ILIKE :search)',
-        { search: `%${options.search}%` },
+    if (options.statuses && options.statuses.length > 0) {
+      const isOverdueSelected = options.statuses.includes('OVERDUE');
+      const isAssignedSelected = options.statuses.includes('ASSIGNED');
+      const isInProgressSelected = options.statuses.includes('IN_PROGRESS');
+      const otherStatuses = options.statuses.filter(
+        (s) => s !== 'OVERDUE' && s !== 'ASSIGNED' && s !== 'IN_PROGRESS',
       );
+
+      const statusClauses: string[] = [];
+
+      if (isOverdueSelected) {
+        statusClauses.push(
+          "(alloc.status IN ('ASSIGNED', 'IN_PROGRESS') AND alloc.dueDate < NOW())",
+        );
+      }
+
+      if (isAssignedSelected) {
+        if (isOverdueSelected) {
+          statusClauses.push("alloc.status = 'ASSIGNED'");
+        } else {
+          statusClauses.push(
+            "(alloc.status = 'ASSIGNED' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+          );
+        }
+      }
+
+      if (isInProgressSelected) {
+        if (isOverdueSelected) {
+          statusClauses.push("alloc.status = 'IN_PROGRESS'");
+        } else {
+          statusClauses.push(
+            "(alloc.status = 'IN_PROGRESS' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+          );
+        }
+      }
+
+      if (otherStatuses.length > 0) {
+        statusClauses.push('alloc.status IN (:...otherStatuses)');
+      }
+
+      if (statusClauses.length > 0) {
+        qb.andWhere(`(${statusClauses.join(' OR ')})`, { otherStatuses });
+      }
+    } else if (options.isOverdue) {
+      qb.andWhere("(alloc.status IN ('ASSIGNED', 'IN_PROGRESS') AND alloc.dueDate < NOW())");
     }
 
-    qb.orderBy('alloc.createdAt', 'DESC');
+    if (options.search) {
+      const rawSearch = options.search.trim();
+      const searchPattern = `%${rawSearch}%`;
+      const sLower = rawSearch.toLowerCase();
+
+      const searchClauses: string[] = [
+        'user.name ILIKE :search',
+        'course.title ILIKE :search',
+        'batch.name ILIKE :search',
+      ];
+
+      // Smart status matching based on display labels
+      if (sLower.length >= 3) {
+        if ('completed'.includes(sLower) || 'complete'.includes(sLower)) {
+          searchClauses.push("alloc.status = 'COMPLETED'");
+        }
+        if ('assigned'.includes(sLower) || 'assign'.includes(sLower)) {
+          searchClauses.push(
+            "(alloc.status = 'ASSIGNED' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+          );
+        }
+        if ('in progress'.includes(sLower) || 'progress'.includes(sLower)) {
+          searchClauses.push(
+            "(alloc.status = 'IN_PROGRESS' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+          );
+        }
+        if ('overdue'.includes(sLower)) {
+          searchClauses.push(
+            "(alloc.status IN ('ASSIGNED', 'IN_PROGRESS') AND alloc.dueDate < NOW())",
+          );
+        }
+        if ('role changed'.includes(sLower) || 'role'.includes(sLower)) {
+          searchClauses.push("alloc.status = 'CLOSED_ROLE_CHANGE'");
+        }
+        if ('batch transferred'.includes(sLower) || 'transfer'.includes(sLower)) {
+          searchClauses.push("alloc.status = 'CLOSED_BATCH_CHANGE'");
+        }
+        if ('revoked'.includes(sLower) || 'revoke'.includes(sLower)) {
+          searchClauses.push("alloc.status = 'REVOKED'");
+        }
+      }
+
+      qb.andWhere(`(${searchClauses.join(' OR ')})`, { search: searchPattern });
+    }
+
+    const dir = options.sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    if (options.sortField === 'menteeName') {
+      qb.addSelect('LOWER(user.name)', 'lower_user_name');
+      qb.orderBy('lower_user_name', dir);
+      qb.addOrderBy('alloc.createdAt', 'DESC');
+    } else {
+      qb.orderBy('alloc.createdAt', dir);
+    }
 
     if (options.page && options.limit) {
       qb.skip((options.page - 1) * options.limit).take(options.limit);
