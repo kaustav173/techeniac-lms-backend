@@ -1236,5 +1236,172 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
       const invalidLimit = trackerQuerySchema.safeParse({ limit: 500 });
       assert.equal(invalidLimit.success, false);
     });
+
+    void it('validates status and statuses against CourseAllocationStatus and OVERDUE', () => {
+      const validSingle = trackerQuerySchema.safeParse({ status: CourseAllocationStatus.ASSIGNED });
+      assert.equal(validSingle.success, true);
+
+      const validOverdue = trackerQuerySchema.safeParse({ status: 'OVERDUE' });
+      assert.equal(validOverdue.success, true);
+
+      const invalidStatus = trackerQuerySchema.safeParse({ status: 'bogus' });
+      assert.equal(invalidStatus.success, false);
+
+      const validStatusesComma = trackerQuerySchema.safeParse({
+        statuses: 'ASSIGNED,IN_PROGRESS,OVERDUE',
+      });
+      assert.equal(validStatusesComma.success, true);
+      if (validStatusesComma.success) {
+        assert.deepEqual(validStatusesComma.data.statuses, [
+          CourseAllocationStatus.ASSIGNED,
+          CourseAllocationStatus.IN_PROGRESS,
+          'OVERDUE',
+        ]);
+      }
+
+      const invalidStatusesComma = trackerQuerySchema.safeParse({
+        statuses: 'ASSIGNED,bogus',
+      });
+      assert.equal(invalidStatusesComma.success, false);
+
+      const invalidStatusesArray = trackerQuerySchema.safeParse({
+        statuses: ['ASSIGNED', 'invalid_val'],
+      });
+      assert.equal(invalidStatusesArray.success, false);
+    });
+  });
+
+  void describe('ProgressRepository.listTrackers Status & Search Query Construction', () => {
+    const createMockAllocationQueryBuilder = () => {
+      const andWhereClauses: string[] = [];
+      const parametersList: Record<string, unknown>[] = [];
+      const qb: Record<string, unknown> = {
+        leftJoinAndSelect: () => qb,
+        where: () => qb,
+        innerJoin: () => qb,
+        andWhere: (clause: string, params?: Record<string, unknown>) => {
+          andWhereClauses.push(clause);
+          if (params) parametersList.push(params);
+          return qb;
+        },
+        addSelect: () => qb,
+        orderBy: () => qb,
+        addOrderBy: () => qb,
+        skip: () => qb,
+        take: () => qb,
+        getManyAndCount: () => Promise.resolve([[], 0]),
+      };
+      return { qb, andWhereClauses, parametersList };
+    };
+
+    void it('does not match status clauses for short name fragments like Ted, cha, chan, Tran, Ran, Due, Ass, Sig, Gre, Res, Ver, Fer', async () => {
+      const fragments = [
+        'Ted',
+        'cha',
+        'chan',
+        'Tran',
+        'Ran',
+        'Due',
+        'Ass',
+        'Sig',
+        'Gre',
+        'Res',
+        'Ver',
+        'Fer',
+      ];
+
+      for (const frag of fragments) {
+        const repo = new ProgressRepository();
+        const { qb, andWhereClauses } = createMockAllocationQueryBuilder();
+        Object.defineProperty(repo, 'allocationRepo', {
+          get: () => ({ createQueryBuilder: () => qb }),
+        });
+
+        await repo.listTrackers({ search: frag });
+
+        const searchClause = andWhereClauses.find((c) => c.includes('user.name ILIKE :search'));
+        assert.ok(searchClause, `Expected search clause for ${frag}`);
+        assert.equal(
+          searchClause?.includes('alloc.status'),
+          false,
+          `Fragment "${frag}" should NOT trigger any status matching, got: ${searchClause}`,
+        );
+      }
+    });
+
+    void it('matches expected status clauses for genuine status searches', async () => {
+      const testCases = [
+        { search: 'comp', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
+        { search: 'complete', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
+        { search: 'completed', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
+        { search: 'assign', expected: `alloc.status = '${CourseAllocationStatus.ASSIGNED}'` },
+        { search: 'prog', expected: `alloc.status = '${CourseAllocationStatus.IN_PROGRESS}'` },
+        { search: 'progress', expected: `alloc.status = '${CourseAllocationStatus.IN_PROGRESS}'` },
+        {
+          search: 'in progress',
+          expected: `alloc.status = '${CourseAllocationStatus.IN_PROGRESS}'`,
+        },
+        {
+          search: 'overdue',
+          expected: `alloc.status IN ('${CourseAllocationStatus.ASSIGNED}', '${CourseAllocationStatus.IN_PROGRESS}')`,
+        },
+        {
+          search: 'role',
+          expected: `alloc.status = '${CourseAllocationStatus.CLOSED_ROLE_CHANGE}'`,
+        },
+        {
+          search: 'role changed',
+          expected: `alloc.status = '${CourseAllocationStatus.CLOSED_ROLE_CHANGE}'`,
+        },
+        {
+          search: 'batch',
+          expected: `alloc.status = '${CourseAllocationStatus.CLOSED_BATCH_CHANGE}'`,
+        },
+        {
+          search: 'transfer',
+          expected: `alloc.status = '${CourseAllocationStatus.CLOSED_BATCH_CHANGE}'`,
+        },
+        { search: 'revoke', expected: `alloc.status = '${CourseAllocationStatus.REVOKED}'` },
+      ];
+
+      for (const { search, expected } of testCases) {
+        const repo = new ProgressRepository();
+        const { qb, andWhereClauses } = createMockAllocationQueryBuilder();
+        Object.defineProperty(repo, 'allocationRepo', {
+          get: () => ({ createQueryBuilder: () => qb }),
+        });
+
+        await repo.listTrackers({ search });
+
+        const searchClause = andWhereClauses.find((c) => c.includes('user.name ILIKE :search'));
+        assert.ok(searchClause);
+        assert.ok(
+          searchClause.includes(expected),
+          `Search "${search}" was expected to contain "${expected}", got: ${searchClause}`,
+        );
+      }
+    });
+
+    void it('uses CourseAllocationStatus enum members in statuses and overdue queries', async () => {
+      const repo = new ProgressRepository();
+      const { qb, andWhereClauses } = createMockAllocationQueryBuilder();
+      Object.defineProperty(repo, 'allocationRepo', {
+        get: () => ({ createQueryBuilder: () => qb }),
+      });
+
+      await repo.listTrackers({
+        statuses: [CourseAllocationStatus.ASSIGNED, CourseAllocationStatus.IN_PROGRESS, 'OVERDUE'],
+      });
+
+      const clause = andWhereClauses[0];
+      assert.ok(clause);
+      assert.ok(clause.includes(`alloc.status = '${CourseAllocationStatus.ASSIGNED}'`));
+      assert.ok(clause.includes(`alloc.status = '${CourseAllocationStatus.IN_PROGRESS}'`));
+      assert.ok(
+        clause.includes(
+          `(alloc.status IN ('${CourseAllocationStatus.ASSIGNED}', '${CourseAllocationStatus.IN_PROGRESS}') AND alloc.dueDate < NOW())`,
+        ),
+      );
+    });
   });
 });

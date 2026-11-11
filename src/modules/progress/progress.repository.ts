@@ -181,7 +181,7 @@ export class ProgressRepository {
     menteeIds?: string[];
     courseIds?: string[];
     mentorId?: string;
-    statuses?: string[];
+    statuses?: (CourseAllocationStatus | 'OVERDUE')[];
     isOverdue?: boolean;
     sortField?: 'menteeName' | 'createdAt';
     sortOrder?: 'asc' | 'desc' | 'ASC' | 'DESC';
@@ -240,36 +240,40 @@ export class ProgressRepository {
 
     if (options.statuses && options.statuses.length > 0) {
       const isOverdueSelected = options.statuses.includes('OVERDUE');
-      const isAssignedSelected = options.statuses.includes('ASSIGNED');
-      const isInProgressSelected = options.statuses.includes('IN_PROGRESS');
-      const otherStatuses = options.statuses.filter(
-        (s) => s !== 'OVERDUE' && s !== 'ASSIGNED' && s !== 'IN_PROGRESS',
-      );
+      const isAssignedSelected = options.statuses.includes(CourseAllocationStatus.ASSIGNED);
+      const isInProgressSelected = options.statuses.includes(CourseAllocationStatus.IN_PROGRESS);
+      const otherStatuses: CourseAllocationStatus[] = [];
+      for (const s of options.statuses) {
+        if (s === 'OVERDUE') continue;
+        if (s !== CourseAllocationStatus.ASSIGNED && s !== CourseAllocationStatus.IN_PROGRESS) {
+          otherStatuses.push(s);
+        }
+      }
 
       const statusClauses: string[] = [];
 
       if (isOverdueSelected) {
         statusClauses.push(
-          "(alloc.status IN ('ASSIGNED', 'IN_PROGRESS') AND alloc.dueDate < NOW())",
+          `(alloc.status IN ('${CourseAllocationStatus.ASSIGNED}', '${CourseAllocationStatus.IN_PROGRESS}') AND alloc.dueDate < NOW())`,
         );
       }
 
       if (isAssignedSelected) {
         if (isOverdueSelected) {
-          statusClauses.push("alloc.status = 'ASSIGNED'");
+          statusClauses.push(`alloc.status = '${CourseAllocationStatus.ASSIGNED}'`);
         } else {
           statusClauses.push(
-            "(alloc.status = 'ASSIGNED' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+            `(alloc.status = '${CourseAllocationStatus.ASSIGNED}' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))`,
           );
         }
       }
 
       if (isInProgressSelected) {
         if (isOverdueSelected) {
-          statusClauses.push("alloc.status = 'IN_PROGRESS'");
+          statusClauses.push(`alloc.status = '${CourseAllocationStatus.IN_PROGRESS}'`);
         } else {
           statusClauses.push(
-            "(alloc.status = 'IN_PROGRESS' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+            `(alloc.status = '${CourseAllocationStatus.IN_PROGRESS}' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))`,
           );
         }
       }
@@ -282,7 +286,9 @@ export class ProgressRepository {
         qb.andWhere(`(${statusClauses.join(' OR ')})`, { otherStatuses });
       }
     } else if (options.isOverdue) {
-      qb.andWhere("(alloc.status IN ('ASSIGNED', 'IN_PROGRESS') AND alloc.dueDate < NOW())");
+      qb.andWhere(
+        `(alloc.status IN ('${CourseAllocationStatus.ASSIGNED}', '${CourseAllocationStatus.IN_PROGRESS}') AND alloc.dueDate < NOW())`,
+      );
     }
 
     if (options.search) {
@@ -296,34 +302,39 @@ export class ProgressRepository {
         'batch.name ILIKE :search',
       ];
 
-      // Smart status matching based on display labels
-      if (sLower.length >= 3) {
-        if ('completed'.includes(sLower) || 'complete'.includes(sLower)) {
-          searchClauses.push("alloc.status = 'COMPLETED'");
+      // Smart status matching based on display labels (anchored to word start / prefix with floor >= 4)
+      if (sLower.length >= 4) {
+        if ('completed'.startsWith(sLower) || 'complete'.startsWith(sLower)) {
+          searchClauses.push(`alloc.status = '${CourseAllocationStatus.COMPLETED}'`);
         }
-        if ('assigned'.includes(sLower) || 'assign'.includes(sLower)) {
+        if ('assigned'.startsWith(sLower) || 'assign'.startsWith(sLower)) {
           searchClauses.push(
-            "(alloc.status = 'ASSIGNED' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+            `(alloc.status = '${CourseAllocationStatus.ASSIGNED}' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))`,
           );
         }
-        if ('in progress'.includes(sLower) || 'progress'.includes(sLower)) {
+        if ('in progress'.startsWith(sLower) || 'progress'.startsWith(sLower)) {
           searchClauses.push(
-            "(alloc.status = 'IN_PROGRESS' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))",
+            `(alloc.status = '${CourseAllocationStatus.IN_PROGRESS}' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))`,
           );
         }
-        if ('overdue'.includes(sLower)) {
+        if ('overdue'.startsWith(sLower)) {
           searchClauses.push(
-            "(alloc.status IN ('ASSIGNED', 'IN_PROGRESS') AND alloc.dueDate < NOW())",
+            `(alloc.status IN ('${CourseAllocationStatus.ASSIGNED}', '${CourseAllocationStatus.IN_PROGRESS}') AND alloc.dueDate < NOW())`,
           );
         }
-        if ('role changed'.includes(sLower) || 'role'.includes(sLower)) {
-          searchClauses.push("alloc.status = 'CLOSED_ROLE_CHANGE'");
+        if ('role changed'.startsWith(sLower) || 'role'.startsWith(sLower)) {
+          searchClauses.push(`alloc.status = '${CourseAllocationStatus.CLOSED_ROLE_CHANGE}'`);
         }
-        if ('batch transferred'.includes(sLower) || 'transfer'.includes(sLower)) {
-          searchClauses.push("alloc.status = 'CLOSED_BATCH_CHANGE'");
+        if (
+          'batch transferred'.startsWith(sLower) ||
+          'batch'.startsWith(sLower) ||
+          ('transfer'.startsWith(sLower) && sLower.length >= 5) ||
+          ('transferred'.startsWith(sLower) && sLower.length >= 5)
+        ) {
+          searchClauses.push(`alloc.status = '${CourseAllocationStatus.CLOSED_BATCH_CHANGE}'`);
         }
-        if ('revoked'.includes(sLower) || 'revoke'.includes(sLower)) {
-          searchClauses.push("alloc.status = 'REVOKED'");
+        if ('revoked'.startsWith(sLower) || 'revoke'.startsWith(sLower)) {
+          searchClauses.push(`alloc.status = '${CourseAllocationStatus.REVOKED}'`);
         }
       }
 
