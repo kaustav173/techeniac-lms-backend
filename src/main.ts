@@ -1,8 +1,13 @@
+import dns from 'node:dns';
+
 import { app } from './app';
 import { env } from './core/config';
 import { closeDatabase, initializeDatabase } from './core/db';
 import { logger } from './core/logging';
 import { closeScheduledJobs, registerScheduledJobs } from './jobs';
+
+// Ensure IPv4 is preferred to prevent AggregateError [ETIMEDOUT] and ENETUNREACH on dual-stack hosts without IPv6 gateways
+dns.setDefaultResultOrder('ipv4first');
 
 export async function bootstrap(): Promise<void> {
   try {
