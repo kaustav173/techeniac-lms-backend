@@ -60,6 +60,7 @@ export function createApp(): Express {
   });
 
   app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/logs', auditRouter);
   app.use('/api/v1/audit-logs', auditRouter);
   app.use('/api/v1/users', user360Router);
   app.use('/api/v1/users', usersRouter);
