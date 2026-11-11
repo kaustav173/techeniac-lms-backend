@@ -302,12 +302,12 @@ export class ProgressRepository {
         'batch.name ILIKE :search',
       ];
 
-      // Smart status matching based on display labels (anchored to word start / prefix with floor >= 4)
-      if (sLower.length >= 4) {
+      // Smart status matching based on display labels (anchored to word start / prefix with floor >= 3)
+      if (sLower.length >= 3) {
         if ('completed'.startsWith(sLower) || 'complete'.startsWith(sLower)) {
           searchClauses.push(`alloc.status = '${CourseAllocationStatus.COMPLETED}'`);
         }
-        if ('assigned'.startsWith(sLower) || 'assign'.startsWith(sLower)) {
+        if (sLower.length >= 4 && ('assigned'.startsWith(sLower) || 'assign'.startsWith(sLower))) {
           searchClauses.push(
             `(alloc.status = '${CourseAllocationStatus.ASSIGNED}' AND (alloc.dueDate >= NOW() OR alloc.dueDate IS NULL))`,
           );
@@ -327,7 +327,7 @@ export class ProgressRepository {
         }
         if (
           'batch transferred'.startsWith(sLower) ||
-          'batch'.startsWith(sLower) ||
+          (sLower.length >= 4 && 'batch'.startsWith(sLower)) ||
           ('transfer'.startsWith(sLower) && sLower.length >= 5) ||
           ('transferred'.startsWith(sLower) && sLower.length >= 5)
         ) {

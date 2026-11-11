@@ -1331,6 +1331,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
 
     void it('matches expected status clauses for genuine status searches', async () => {
       const testCases = [
+        { search: 'com', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
         { search: 'comp', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
         { search: 'complete', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
         { search: 'completed', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
