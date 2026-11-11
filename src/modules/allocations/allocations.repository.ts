@@ -284,7 +284,7 @@ export class AllocationsRepository {
       createdAt: 'allocation.createdAt',
     };
     const sortColumn = (query.sortBy && sortColumnMap[query.sortBy]) || 'allocation.createdAt';
-    const sortDir = (query.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
+    const sortDir = query.sortOrder ?? 'DESC';
     qb.orderBy(sortColumn, sortDir);
     if (sortColumn !== 'allocation.createdAt') {
       qb.addOrderBy('allocation.createdAt', 'DESC');

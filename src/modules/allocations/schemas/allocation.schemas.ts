@@ -86,7 +86,11 @@ export const listAllocationsQuerySchema = z.object({
     sortBy: z
       .enum(['course', 'mentee', 'batch', 'started', 'due', 'progress', 'status', 'createdAt'])
       .optional(),
-    sortOrder: z.enum(['asc', 'desc', 'ASC', 'DESC']).optional(),
+    sortOrder: z
+      .enum(['ASC', 'DESC', 'asc', 'desc'])
+      .optional()
+      .transform((val) => (val?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC'))
+      .default('DESC'),
   }),
 });
 

@@ -37,6 +37,7 @@ export class PerformanceController extends BaseController {
         data: {
           metrics: result.metrics,
           mentees: result.mentees,
+          // Maintained in data for frontend client contract compatibility (PaginatedPerformanceData)
           pagination: result.pagination,
         },
         meta: result.pagination,

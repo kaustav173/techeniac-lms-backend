@@ -228,11 +228,12 @@ export class GradingRepository {
     // Sorting: newest first by default, oldest first toggle (FR-10.2, REV-03)
     let direction: 'ASC' | 'DESC' = 'DESC';
     if (query.sortOrder) {
-      direction = query.sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+      direction = query.sortOrder;
     } else if (query.sort === 'oldest') {
       direction = 'ASC';
     }
 
+    // Supports both 'mentee' and 'name' aliases for mentee name ordering
     if (query.sortBy === 'mentee' || query.sortBy === 'name') {
       qb.orderBy('mentee.name', direction).addOrderBy('sub.submittedAt', 'DESC');
     } else {
