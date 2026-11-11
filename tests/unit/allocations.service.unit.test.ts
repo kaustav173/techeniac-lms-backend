@@ -1353,10 +1353,12 @@ void describe('AllocationsService Unit Tests (PRD M7: ALC-01 to ALC-24)', () => 
       assert.equal(result.created.length, 1);
     });
 
-    void it('defaults pagination limit to 10 in listAllocationsQuerySchema', () => {
+    void it('defaults pagination and sort parameters in listAllocationsQuerySchema', () => {
       const parsed = listAllocationsQuerySchema.shape.query.parse({});
       assert.equal(parsed.limit, 10);
       assert.equal(parsed.page, 1);
+      assert.equal(parsed.sortBy, 'createdAt');
+      assert.equal(parsed.sortOrder, 'desc');
     });
 
     void it('parses valid sortBy and sortOrder in listAllocationsQuerySchema', () => {

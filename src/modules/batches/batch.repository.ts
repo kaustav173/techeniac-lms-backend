@@ -191,6 +191,30 @@ export class BatchRepository {
     return targetQb;
   }
 
+  private createBatchWithCountsQuery(manager?: EntityManager): SelectQueryBuilder<Batch> {
+    return this.getBatchRepo(manager)
+      .createQueryBuilder('batch')
+      .leftJoinAndSelect('batch.creator', 'creator')
+      .loadRelationCountAndMap('batch.mentorsCount', 'batch.members', 'mentor', (subQb) =>
+        subQb.where('mentor.member_role = :mentorRole AND mentor.is_active = true', {
+          mentorRole: BatchMemberRole.MENTOR,
+        }),
+      )
+      .loadRelationCountAndMap('batch.menteesCount', 'batch.members', 'mentee', (subQb) =>
+        subQb.where('mentee.member_role = :menteeRole AND mentee.is_active = true', {
+          menteeRole: BatchMemberRole.MENTEE,
+        }),
+      );
+  }
+
+  private toBatchWithCounts(batch: Batch): BatchWithCounts {
+    return {
+      ...batch,
+      mentorsCount: (batch as unknown as { mentorsCount?: number }).mentorsCount ?? 0,
+      menteesCount: (batch as unknown as { menteesCount?: number }).menteesCount ?? 0,
+    };
+  }
+
   public async findWithFilters(
     params: BatchQueryParams,
     mentorId?: string,
@@ -202,91 +226,71 @@ export class BatchRepository {
     const limit = params.limit ?? 10;
     const safeSortOrder = (params.sortOrder || 'desc').toUpperCase() as 'ASC' | 'DESC';
 
-    // Use a two-step ID query for aggregate or case-insensitive text sorting to avoid TypeORM distinctAlias issues
+    // Use a transactional two-step ID query for aggregate or case-insensitive text sorting
     if (params.sortBy === 'members' || params.sortBy === 'name' || params.sortBy === 'code') {
-      const total = await this.applyBatchFilters(
-        this.batchRepo.createQueryBuilder('batch'),
-        params,
-        mentorId,
-      ).getCount();
-      if (total === 0) {
-        return { items: [], total: 0 };
-      }
+      return await this.dataSource.transaction(async (manager) => {
+        const batchRepo = this.getBatchRepo(manager);
+        const total = await this.applyBatchFilters(
+          batchRepo.createQueryBuilder('batch'),
+          params,
+          mentorId,
+        ).getCount();
+        if (total === 0) {
+          return { items: [], total: 0 };
+        }
 
-      const idQb = this.applyBatchFilters(
-        this.batchRepo.createQueryBuilder('batch').select('batch.id', 'id'),
-        params,
-        mentorId,
-      );
+        const idQb = this.applyBatchFilters(
+          batchRepo.createQueryBuilder('batch').select('batch.id', 'id'),
+          params,
+          mentorId,
+        );
 
-      if (params.sortBy === 'members') {
+        if (params.sortBy === 'members') {
+          idQb
+            .leftJoin('batch.members', 'bm', 'bm.is_active = true AND bm.deleted_at IS NULL')
+            .groupBy('batch.id')
+            .orderBy('COUNT(bm.id)', safeSortOrder, 'NULLS LAST');
+        } else if (params.sortBy === 'name') {
+          idQb.orderBy('LOWER(batch.name)', safeSortOrder, 'NULLS LAST');
+        } else {
+          idQb.orderBy('LOWER(batch.code)', safeSortOrder, 'NULLS LAST');
+        }
+
         idQb
-          .leftJoin('batch.members', 'bm', 'bm.is_active = true AND bm.deleted_at IS NULL')
-          .groupBy('batch.id')
-          .orderBy('COUNT(bm.id)', safeSortOrder, 'NULLS LAST');
-      } else if (params.sortBy === 'name') {
-        idQb.orderBy('LOWER(batch.name)', safeSortOrder, 'NULLS LAST');
-      } else {
-        idQb.orderBy('LOWER(batch.code)', safeSortOrder, 'NULLS LAST');
-      }
+          .addOrderBy('batch.createdAt', 'DESC')
+          .addOrderBy('batch.id', 'ASC')
+          .offset((page - 1) * limit)
+          .limit(limit);
 
-      idQb
-        .addOrderBy('batch.createdAt', 'DESC')
-        .addOrderBy('batch.id', 'ASC')
-        .offset((page - 1) * limit)
-        .limit(limit);
+        const idResults: Array<{ id: string }> = await idQb.getRawMany();
+        const ids = idResults.map((r) => r.id);
 
-      const idResults: Array<{ id: string }> = await idQb.getRawMany();
-      const ids = idResults.map((r) => r.id);
+        if (ids.length === 0) {
+          return { items: [], total };
+        }
 
-      if (ids.length === 0) {
-        return { items: [], total };
-      }
+        const loadedBatches = await this.createBatchWithCountsQuery(manager)
+          .whereInIds(ids)
+          .getMany();
 
-      const loadedBatches = await this.batchRepo
-        .createQueryBuilder('batch')
-        .leftJoinAndSelect('batch.creator', 'creator')
-        .loadRelationCountAndMap('batch.mentorsCount', 'batch.members', 'mentor', (subQb) =>
-          subQb.where('mentor.member_role = :mentorRole AND mentor.is_active = true', {
-            mentorRole: BatchMemberRole.MENTOR,
-          }),
-        )
-        .loadRelationCountAndMap('batch.menteesCount', 'batch.members', 'mentee', (subQb) =>
-          subQb.where('mentee.member_role = :menteeRole AND mentee.is_active = true', {
-            menteeRole: BatchMemberRole.MENTEE,
-          }),
-        )
-        .whereInIds(ids)
-        .getMany();
+        const batchMap = new Map(loadedBatches.map((b) => [b.id, b]));
+        const orderedBatches = ids
+          .map((id) => batchMap.get(id))
+          .filter((b): b is Batch => Boolean(b));
 
-      const batchMap = new Map(loadedBatches.map((b) => [b.id, b]));
-      const orderedBatches = ids
-        .map((id) => batchMap.get(id))
-        .filter((b): b is Batch => Boolean(b));
+        const droppedCount = ids.length - orderedBatches.length;
+        const effectiveTotal =
+          droppedCount > 0 ? Math.max(orderedBatches.length, total - droppedCount) : total;
 
-      const itemsWithCounts: BatchWithCounts[] = orderedBatches.map((b) => ({
-        ...b,
-        mentorsCount: (b as unknown as { mentorsCount?: number }).mentorsCount ?? 0,
-        menteesCount: (b as unknown as { menteesCount?: number }).menteesCount ?? 0,
-      }));
-
-      return { items: itemsWithCounts, total };
+        return {
+          items: orderedBatches.map((b) => this.toBatchWithCounts(b)),
+          total: effectiveTotal,
+        };
+      });
     }
 
     const qb: SelectQueryBuilder<Batch> = this.applyBatchFilters(
-      this.batchRepo
-        .createQueryBuilder('batch')
-        .leftJoinAndSelect('batch.creator', 'creator')
-        .loadRelationCountAndMap('batch.mentorsCount', 'batch.members', 'mentor', (subQb) =>
-          subQb.where('mentor.member_role = :mentorRole AND mentor.is_active = true', {
-            mentorRole: BatchMemberRole.MENTOR,
-          }),
-        )
-        .loadRelationCountAndMap('batch.menteesCount', 'batch.members', 'mentee', (subQb) =>
-          subQb.where('mentee.member_role = :menteeRole AND mentee.is_active = true', {
-            menteeRole: BatchMemberRole.MENTEE,
-          }),
-        ),
+      this.createBatchWithCountsQuery(),
       params,
       mentorId,
     );
@@ -310,13 +314,10 @@ export class BatchRepository {
 
     const [items, total] = await qb.getManyAndCount();
 
-    const itemsWithCounts: BatchWithCounts[] = items.map((b) => ({
-      ...b,
-      mentorsCount: (b as unknown as { mentorsCount?: number }).mentorsCount ?? 0,
-      menteesCount: (b as unknown as { menteesCount?: number }).menteesCount ?? 0,
-    }));
-
-    return { items: itemsWithCounts, total };
+    return {
+      items: items.map((b) => this.toBatchWithCounts(b)),
+      total,
+    };
   }
 
   // --- Status History ---

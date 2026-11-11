@@ -100,8 +100,8 @@ export const userQuerySchema = z.object({
       return val;
     }, z.boolean())
     .optional(),
-  sortBy: z.enum(['name', 'email', 'role', 'status', 'createdAt']).optional(),
-  sortOrder: z.enum(['asc', 'desc']).optional(),
+  sortBy: z.enum(['name', 'email', 'role', 'status', 'createdAt']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
 export const listUsersSchema = z.object({

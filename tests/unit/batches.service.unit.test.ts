@@ -281,10 +281,13 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
       return qb;
     };
 
+    const repoObj = {
+      createQueryBuilder: createMockQb,
+    };
     const mockDataSource = {
-      getRepository: () => ({
-        createQueryBuilder: createMockQb,
-      }),
+      getRepository: () => repoObj,
+      transaction: async <T>(cb: (manager: unknown) => Promise<T>) =>
+        await cb({ getRepository: () => repoObj }),
     } as unknown as DataSource;
 
     const repo = new BatchRepository(mockDataSource);
@@ -312,9 +315,10 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     );
   });
 
-  void it('uses case-insensitive LOWER(batch.name) in two-step ID query for name sorting', async () => {
+  void it('uses case-insensitive LOWER(batch.name) in transactional two-step ID query and adjusts total if a row disappears', async () => {
     const orderBys: Array<{ column: string; order?: string }> = [];
     let callIndex = 0;
+    let usedTransaction = false;
 
     const createMockQb = () => {
       const idx = callIndex++;
@@ -334,27 +338,43 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
         offset: () => qb,
         limit: () => qb,
         whereInIds: () => qb,
-        getCount: () => Promise.resolve(1),
-        getRawMany: () => Promise.resolve([{ id: 'b-1' }]),
+        getCount: () => Promise.resolve(2),
+        getRawMany: () => Promise.resolve([{ id: 'b-1' }, { id: 'b-2' }]),
         getMany: () => Promise.resolve([{ id: 'b-1', name: 'Alpha' } as Batch]),
       };
       return qb;
     };
 
+    const repoObj = {
+      createQueryBuilder: createMockQb,
+    };
     const mockDataSource = {
-      getRepository: () => ({
-        createQueryBuilder: createMockQb,
-      }),
+      getRepository: () => repoObj,
+      transaction: async <T>(cb: (manager: unknown) => Promise<T>) => {
+        usedTransaction = true;
+        return await cb({ getRepository: () => repoObj });
+      },
     } as unknown as DataSource;
 
     const repo = new BatchRepository(mockDataSource);
-    await repo.findWithFilters({ page: 1, limit: 10, sortBy: 'name', sortOrder: 'asc' });
+    const result = await repo.findWithFilters({
+      page: 1,
+      limit: 10,
+      sortBy: 'name',
+      sortOrder: 'asc',
+    });
 
+    assert.equal(usedTransaction, true);
+    assert.equal(result.total, 1);
     assert.deepEqual(orderBys, [
       { column: 'LOWER(batch.name)', order: 'ASC' },
       { column: 'batch.createdAt', order: 'DESC' },
       { column: 'batch.id', order: 'ASC' },
     ]);
+
+    const defaults = batchQuerySchema.shape.query.parse({});
+    assert.equal(defaults.sortBy, 'createdAt');
+    assert.equal(defaults.sortOrder, 'desc');
   });
 });
 

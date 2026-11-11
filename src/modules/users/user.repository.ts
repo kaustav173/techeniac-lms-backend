@@ -17,6 +17,15 @@ export interface CreateUserData {
   updatedBy?: string | null;
 }
 
+export type UserListParams = Omit<UserQueryParams, 'sortBy' | 'sortOrder'> &
+  Partial<Pick<UserQueryParams, 'sortBy' | 'sortOrder'>>;
+
+const PENDING_USER_STATUS_SQL =
+  'user.is_active = true AND (user.must_change_password = true OR user.last_login_at IS NULL)';
+const ACTIVE_USER_STATUS_SQL =
+  'user.is_active = true AND user.must_change_password = false AND user.last_login_at IS NOT NULL';
+const INACTIVE_USER_STATUS_SQL = 'user.is_active = false';
+
 export class UserRepository {
   private get repo(): Repository<User> {
     return this.dataSource.getRepository(User);
@@ -154,10 +163,7 @@ export class UserRepository {
     await this.getRepo(manager).increment({ id }, 'tokenVersion', 1);
   }
 
-  public async findAll(
-    params: UserQueryParams,
-    manager?: EntityManager,
-  ): Promise<[User[], number]> {
+  public async findAll(params: UserListParams, manager?: EntityManager): Promise<[User[], number]> {
     const query = this.getRepo(manager).createQueryBuilder('user').where('user.deleted_at IS NULL');
 
     if (params.role) {
@@ -175,17 +181,13 @@ export class UserRepository {
       const conditions: string[] = [];
 
       if (statuses.includes('pending')) {
-        conditions.push(
-          '(user.is_active = true AND (user.must_change_password = true OR user.last_login_at IS NULL))',
-        );
+        conditions.push(`(${PENDING_USER_STATUS_SQL})`);
       }
       if (statuses.includes('active')) {
-        conditions.push(
-          '(user.is_active = true AND user.must_change_password = false AND user.last_login_at IS NOT NULL)',
-        );
+        conditions.push(`(${ACTIVE_USER_STATUS_SQL})`);
       }
       if (statuses.includes('inactive')) {
-        conditions.push('(user.is_active = false)');
+        conditions.push(`(${INACTIVE_USER_STATUS_SQL})`);
       }
 
       if (conditions.length > 0) {
@@ -292,17 +294,28 @@ export class UserRepository {
   public async getCounts(manager?: EntityManager): Promise<{
     total: number;
     active: number;
+    pending: number;
     inactive: number;
   }> {
-    const repo = this.getRepo(manager);
-    const [total, active] = await Promise.all([
-      repo.count(),
-      repo.count({ where: { isActive: true } }),
-    ]);
+    const raw = await this.getRepo(manager)
+      .createQueryBuilder('user')
+      .select('COUNT(*)', 'total')
+      .addSelect(`COUNT(*) FILTER (WHERE ${ACTIVE_USER_STATUS_SQL})`, 'active')
+      .addSelect(`COUNT(*) FILTER (WHERE ${PENDING_USER_STATUS_SQL})`, 'pending')
+      .addSelect(`COUNT(*) FILTER (WHERE ${INACTIVE_USER_STATUS_SQL})`, 'inactive')
+      .where('user.deleted_at IS NULL')
+      .getRawOne<{
+        total?: string | number;
+        active?: string | number;
+        pending?: string | number;
+        inactive?: string | number;
+      }>();
+
     return {
-      total,
-      active,
-      inactive: Math.max(0, total - active),
+      total: Number(raw?.total ?? 0),
+      active: Number(raw?.active ?? 0),
+      pending: Number(raw?.pending ?? 0),
+      inactive: Number(raw?.inactive ?? 0),
     };
   }
 

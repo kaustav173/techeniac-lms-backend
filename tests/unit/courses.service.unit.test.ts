@@ -492,17 +492,20 @@ void describe('CoursesService Unit Tests', () => {
   });
 
   void describe('Courses Query Schema & Repository Sorting', () => {
-    void it('parses topics/tasks/title sortBy values and defaults to createdAt desc', () => {
+    void it('parses topics/assignments/title sortBy values and defaults to createdAt desc', () => {
       const defaults = listCoursesQuerySchema.shape.query.parse({});
       assert.equal(defaults.sortBy, 'createdAt');
       assert.equal(defaults.sortOrder, 'desc');
 
-      const topics = listCoursesQuerySchema.shape.query.parse({
-        sortBy: 'topics',
+      const assignments = listCoursesQuerySchema.shape.query.parse({
+        sortBy: 'assignments',
         sortOrder: 'asc',
       });
-      assert.equal(topics.sortBy, 'topics');
-      assert.equal(topics.sortOrder, 'asc');
+      assert.equal(assignments.sortBy, 'assignments');
+      assert.equal(assignments.sortOrder, 'asc');
+
+      const legacyTasks = listCoursesQuerySchema.shape.query.safeParse({ sortBy: 'tasks' });
+      assert.equal(legacyTasks.success, false);
 
       const invalid = listCoursesQuerySchema.shape.query.safeParse({ sortBy: 'invalid' });
       assert.equal(invalid.success, false);

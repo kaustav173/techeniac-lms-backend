@@ -3,6 +3,7 @@ import { In, IsNull } from 'typeorm';
 import { AppDataSource } from '../../core/db';
 import { ConflictError, NotFoundError, ValidationError } from '../../core/errors';
 import { Assignment, AssignmentScope, Course, Subtopic, Topic } from './entities';
+import type { ListCoursesQueryInput } from './schemas/courses.schemas';
 
 export interface CourseImpactInfo {
   courseId: string;
@@ -102,14 +103,9 @@ export class CoursesRepository {
     return targetQb;
   }
 
-  async listCourses(options?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    isActive?: boolean;
-    sortBy?: 'createdAt' | 'title' | 'updatedAt' | 'topics' | 'tasks';
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<{ items: Course[]; total: number }> {
+  async listCourses(
+    options?: Partial<ListCoursesQueryInput>,
+  ): Promise<{ items: Course[]; total: number }> {
     const page = options?.page && options.page > 0 ? options.page : 1;
     const limit = options?.limit && options.limit > 0 ? options.limit : 10;
     const sortBy = options?.sortBy ?? 'createdAt';
@@ -119,7 +115,7 @@ export class CoursesRepository {
     let items: Course[];
     let total: number;
 
-    if (sortBy === 'topics' || sortBy === 'tasks' || sortBy === 'title') {
+    if (sortBy === 'topics' || sortBy === 'assignments' || sortBy === 'title') {
       total = await this.applyCourseFilters(
         this.courseRepo.createQueryBuilder('course'),
         options,
@@ -138,7 +134,7 @@ export class CoursesRepository {
           .leftJoin('topics', 't', 't.course_id = course.id AND t.deleted_at IS NULL')
           .groupBy('course.id')
           .orderBy('COUNT(t.id)', safeSortOrder, 'NULLS LAST');
-      } else if (sortBy === 'tasks') {
+      } else if (sortBy === 'assignments') {
         idQb
           .leftJoin('assignments', 'a', 'a.course_id = course.id AND a.deleted_at IS NULL')
           .groupBy('course.id')

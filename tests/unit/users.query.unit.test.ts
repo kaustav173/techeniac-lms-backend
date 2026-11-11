@@ -403,5 +403,53 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
         { column: 'user.id', order: 'ASC' },
       ]);
     });
+
+    void it('computes total, active, pending, and inactive counts in getCounts using matching status predicates', async () => {
+      const repo = new UserRepository();
+      const selectCalls: Array<{ expr: string; alias?: string }> = [];
+      const whereClauses: string[] = [];
+
+      const countQb = {
+        select: (expr: string, alias?: string) => {
+          selectCalls.push({ expr, alias });
+          return countQb;
+        },
+        addSelect: (expr: string, alias?: string) => {
+          selectCalls.push({ expr, alias });
+          return countQb;
+        },
+        where: (clause: string) => {
+          whereClauses.push(clause);
+          return countQb;
+        },
+        getRawOne: () => Promise.resolve({ total: '12', active: '7', pending: '3', inactive: '2' }),
+      };
+
+      const mockManager = {
+        getRepository: () => ({
+          createQueryBuilder: () => countQb,
+        }),
+      } as unknown as EntityManager;
+
+      const counts = await repo.getCounts(mockManager);
+
+      assert.deepStrictEqual(counts, { total: 12, active: 7, pending: 3, inactive: 2 });
+      assert.strictEqual(
+        whereClauses.some((c) => c.includes('user.deleted_at IS NULL')),
+        true,
+      );
+      const pendingSelect = selectCalls.find((s) => s.alias === 'pending')?.expr ?? '';
+      assert.strictEqual(
+        pendingSelect.includes('user.is_active = true') &&
+          pendingSelect.includes('user.must_change_password = true'),
+        true,
+      );
+    });
+
+    void it('defaults sortBy to createdAt and sortOrder to desc in userQuerySchema', () => {
+      const parsed = userQuerySchema.parse({});
+      assert.strictEqual(parsed.sortBy, 'createdAt');
+      assert.strictEqual(parsed.sortOrder, 'desc');
+    });
   });
 });

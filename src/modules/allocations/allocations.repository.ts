@@ -204,7 +204,8 @@ export class AllocationsRepository {
   }
 
   async listAllocations(
-    query: ListAllocationsQuery,
+    query: Omit<ListAllocationsQuery, 'sortBy' | 'sortOrder'> &
+      Partial<Pick<ListAllocationsQuery, 'sortBy' | 'sortOrder'>>,
     allowedBatchIds?: string[] | null,
     enforcedUserId?: string | null,
   ): Promise<AllocationListResult> {

@@ -112,7 +112,7 @@ export class UsersService {
     total: number;
     page: number;
     limit: number;
-    counts: { total: number; active: number; inactive: number };
+    counts: { total: number; active: number; pending: number; inactive: number };
   }> {
     const [users, total] = await this.repo.findAll(params);
     const counts = await this.repo.getCounts();
