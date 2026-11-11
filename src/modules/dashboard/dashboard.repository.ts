@@ -14,26 +14,46 @@ import type {
 } from './schemas/dashboard.schemas';
 
 export class DashboardRepository {
-  private readonly userRepo: Repository<User>;
-  private readonly batchRepo: Repository<Batch>;
-  private readonly batchMemberRepo: Repository<BatchMember>;
-  private readonly mentorMenteeRepo: Repository<MentorMentee>;
-  private readonly courseRepo: Repository<Course>;
-  private readonly assignmentRepo: Repository<Assignment>;
-  private readonly allocationRepo: Repository<CourseAllocation>;
-  private readonly submissionRepo: Repository<Submission>;
-  private readonly overrideRepo: Repository<AssignmentDueOverride>;
+  private readonly dataSource: DataSource;
 
   constructor(dataSource: DataSource = AppDataSource) {
-    this.userRepo = dataSource.getRepository(User);
-    this.batchRepo = dataSource.getRepository(Batch);
-    this.batchMemberRepo = dataSource.getRepository(BatchMember);
-    this.mentorMenteeRepo = dataSource.getRepository(MentorMentee);
-    this.courseRepo = dataSource.getRepository(Course);
-    this.assignmentRepo = dataSource.getRepository(Assignment);
-    this.allocationRepo = dataSource.getRepository(CourseAllocation);
-    this.submissionRepo = dataSource.getRepository(Submission);
-    this.overrideRepo = dataSource.getRepository(AssignmentDueOverride);
+    this.dataSource = dataSource;
+  }
+
+  private get userRepo(): Repository<User> {
+    return this.dataSource.getRepository(User);
+  }
+
+  private get batchRepo(): Repository<Batch> {
+    return this.dataSource.getRepository(Batch);
+  }
+
+  private get batchMemberRepo(): Repository<BatchMember> {
+    return this.dataSource.getRepository(BatchMember);
+  }
+
+  private get mentorMenteeRepo(): Repository<MentorMentee> {
+    return this.dataSource.getRepository(MentorMentee);
+  }
+
+  private get courseRepo(): Repository<Course> {
+    return this.dataSource.getRepository(Course);
+  }
+
+  private get assignmentRepo(): Repository<Assignment> {
+    return this.dataSource.getRepository(Assignment);
+  }
+
+  private get allocationRepo(): Repository<CourseAllocation> {
+    return this.dataSource.getRepository(CourseAllocation);
+  }
+
+  private get submissionRepo(): Repository<Submission> {
+    return this.dataSource.getRepository(Submission);
+  }
+
+  private get overrideRepo(): Repository<AssignmentDueOverride> {
+    return this.dataSource.getRepository(AssignmentDueOverride);
   }
 
   public async getAdminMetrics(): Promise<AdminDashboardResponse> {
