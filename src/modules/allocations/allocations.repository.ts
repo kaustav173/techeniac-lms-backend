@@ -356,7 +356,11 @@ export class AllocationsRepository {
       mentee: 'LOWER(user.name)',
       batch: 'LOWER(batch.name)',
       startDate: 'allocation.startDate',
+      started: 'allocation.startDate',
       dueDate: 'allocation.dueDate',
+      due: 'allocation.dueDate',
+      progress: 'allocation.progressPercent',
+      status: 'allocation.status',
       createdAt: 'allocation.createdAt',
     };
     const sortBy = query.sortBy ?? 'createdAt';
