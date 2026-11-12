@@ -93,6 +93,7 @@ export class PerformanceRepository {
 
     const targetBatchIds =
       toArray(filter.batchIds ?? filter.batchId) ??
+      scope.scopedBatchIds ??
       (scope.scopedBatchId ? [scope.scopedBatchId] : undefined);
     const targetCourseIds = toArray(filter.courseIds ?? filter.courseId);
     const targetStatuses = toArray(filter.statuses ?? filter.status);
@@ -286,6 +287,7 @@ export class PerformanceRepository {
 
     const targetBatchIds =
       toArray(filter.batchIds ?? filter.batchId) ??
+      scope.scopedBatchIds ??
       (scope.scopedBatchId ? [scope.scopedBatchId] : undefined);
     const targetCourseIds = toArray(filter.courseIds ?? filter.courseId);
     const targetStatuses = toArray(filter.statuses ?? filter.status);
@@ -297,7 +299,7 @@ export class PerformanceRepository {
       .where('u.role = :menteeRole', { menteeRole: UserRole.MENTEE })
       .andWhere('u.deleted_at IS NULL')
       .andWhere(
-        '(alloc.id IS NOT NULL OR EXISTS (SELECT 1 FROM batch_members bm WHERE bm.user_id = u.id AND bm.deleted_at IS NULL) OR EXISTS (SELECT 1 FROM submissions sub WHERE sub.mentee_id = u.id AND sub.deleted_at IS NULL))',
+        '(alloc.id IS NOT NULL OR EXISTS (SELECT 1 FROM batch_members bm WHERE bm.user_id = u.id AND bm.deleted_at IS NULL) OR EXISTS (SELECT 1 FROM submissions sub INNER JOIN course_allocations ca2 ON ca2.id = sub.course_allocation_id WHERE ca2.user_id = u.id AND sub.deleted_at IS NULL))',
       );
 
     if (targetBatchIds && targetBatchIds.length > 0) {

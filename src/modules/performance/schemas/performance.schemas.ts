@@ -2,55 +2,51 @@ import { z } from 'zod';
 
 import { CourseAllocationStatus } from '../../allocations';
 
+const createDelimitedFilterSchema = <T extends z.ZodTypeAny>(
+  itemSchema: T,
+  maxItems = 20,
+  maxMessage = 'At most 20 values may be filtered at once',
+) =>
+  z
+    .union([
+      itemSchema,
+      z
+        .union([
+          z.string().transform((val) =>
+            val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean),
+          ),
+          z.array(z.string()),
+        ])
+        .pipe(z.array(itemSchema).max(maxItems, maxMessage)),
+    ])
+    .optional();
+
 export const performanceFilterSchema = z.object({
   query: z.object({
-    batchId: z
-      .union([
-        z.string().uuid(),
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
-    batchIds: z
-      .union([
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
+    batchId: createDelimitedFilterSchema(
+      z.string().uuid('batchId must be a valid UUID'),
+      20,
+      'At most 20 batch IDs may be filtered at once',
+    ),
+    batchIds: createDelimitedFilterSchema(
+      z.string().uuid('batchIds must contain valid UUIDs'),
+      20,
+      'At most 20 batch IDs may be filtered at once',
+    ),
     mentorId: z.string().uuid({ message: 'mentorId must be a valid UUID' }).optional(),
-    courseId: z
-      .union([
-        z.string().uuid(),
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
-    courseIds: z
-      .union([
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
+    courseId: createDelimitedFilterSchema(
+      z.string().uuid('courseId must be a valid UUID'),
+      20,
+      'At most 20 course IDs may be filtered at once',
+    ),
+    courseIds: createDelimitedFilterSchema(
+      z.string().uuid('courseIds must contain valid UUIDs'),
+      20,
+      'At most 20 course IDs may be filtered at once',
+    ),
     startDate: z
       .string()
       .datetime({ offset: true })
@@ -62,31 +58,16 @@ export const performanceFilterSchema = z.object({
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
       .optional(),
     gradeRange: z.enum(['A+', 'A', 'B', 'C', 'D', 'F', 'ALL']).optional(),
-    status: z
-      .union([
-        z.nativeEnum(CourseAllocationStatus),
-        z.string().transform(
-          (val) =>
-            val
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean) as CourseAllocationStatus[],
-        ),
-        z.array(z.nativeEnum(CourseAllocationStatus)),
-      ])
-      .optional(),
-    statuses: z
-      .union([
-        z.string().transform(
-          (val) =>
-            val
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean) as CourseAllocationStatus[],
-        ),
-        z.array(z.nativeEnum(CourseAllocationStatus)),
-      ])
-      .optional(),
+    status: createDelimitedFilterSchema(
+      z.nativeEnum(CourseAllocationStatus),
+      20,
+      'At most 20 statuses may be filtered at once',
+    ),
+    statuses: createDelimitedFilterSchema(
+      z.nativeEnum(CourseAllocationStatus),
+      20,
+      'At most 20 statuses may be filtered at once',
+    ),
     search: z.string().trim().optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
@@ -113,53 +94,27 @@ export const performanceFilterSchema = z.object({
 
 export const exportPerformanceSchema = z.object({
   query: z.object({
-    batchId: z
-      .union([
-        z.string().uuid(),
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
-    batchIds: z
-      .union([
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
+    batchId: createDelimitedFilterSchema(
+      z.string().uuid('batchId must be a valid UUID'),
+      20,
+      'At most 20 batch IDs may be filtered at once',
+    ),
+    batchIds: createDelimitedFilterSchema(
+      z.string().uuid('batchIds must contain valid UUIDs'),
+      20,
+      'At most 20 batch IDs may be filtered at once',
+    ),
     mentorId: z.string().uuid().optional(),
-    courseId: z
-      .union([
-        z.string().uuid(),
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
-    courseIds: z
-      .union([
-        z.string().transform((val) =>
-          val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        ),
-        z.array(z.string().uuid()),
-      ])
-      .optional(),
+    courseId: createDelimitedFilterSchema(
+      z.string().uuid('courseId must be a valid UUID'),
+      20,
+      'At most 20 course IDs may be filtered at once',
+    ),
+    courseIds: createDelimitedFilterSchema(
+      z.string().uuid('courseIds must contain valid UUIDs'),
+      20,
+      'At most 20 course IDs may be filtered at once',
+    ),
     startDate: z
       .string()
       .datetime({ offset: true })
@@ -171,31 +126,16 @@ export const exportPerformanceSchema = z.object({
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
       .optional(),
     gradeRange: z.enum(['A+', 'A', 'B', 'C', 'D', 'F', 'ALL']).optional(),
-    status: z
-      .union([
-        z.nativeEnum(CourseAllocationStatus),
-        z.string().transform(
-          (val) =>
-            val
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean) as CourseAllocationStatus[],
-        ),
-        z.array(z.nativeEnum(CourseAllocationStatus)),
-      ])
-      .optional(),
-    statuses: z
-      .union([
-        z.string().transform(
-          (val) =>
-            val
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean) as CourseAllocationStatus[],
-        ),
-        z.array(z.nativeEnum(CourseAllocationStatus)),
-      ])
-      .optional(),
+    status: createDelimitedFilterSchema(
+      z.nativeEnum(CourseAllocationStatus),
+      20,
+      'At most 20 statuses may be filtered at once',
+    ),
+    statuses: createDelimitedFilterSchema(
+      z.nativeEnum(CourseAllocationStatus),
+      20,
+      'At most 20 statuses may be filtered at once',
+    ),
     search: z.string().trim().optional(),
     sortBy: z
       .enum([

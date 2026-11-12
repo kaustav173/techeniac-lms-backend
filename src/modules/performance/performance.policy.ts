@@ -14,6 +14,7 @@ export interface PerformanceScopeFilter {
   mentorId?: string;
   allowedMenteeIds?: string[];
   scopedBatchId?: string;
+  scopedBatchIds?: string[];
 }
 
 export class PerformancePolicy {
@@ -55,36 +56,41 @@ export class PerformancePolicy {
       return {
         isSuperAdmin: true,
         scopedBatchId: requestedBatchIds[0],
+        scopedBatchIds: requestedBatchIds.length > 0 ? requestedBatchIds : undefined,
       };
     }
 
     if (role === UserRole.MENTOR) {
       if (requestedBatchIds.length > 0) {
-        const allowedMenteeIds: string[] = [];
-        for (const bId of requestedBatchIds) {
-          let membership = await this.batchRepo.findActiveMemberInBatch(bId, actor.id);
-          if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
-            membership = await this.batchRepo.findMemberInBatch(bId, actor.id);
-          }
+        const menteeIdArrays = await Promise.all(
+          requestedBatchIds.map(async (bId) => {
+            let membership = await this.batchRepo.findActiveMemberInBatch(bId, actor.id);
+            if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
+              membership = await this.batchRepo.findMemberInBatch(bId, actor.id);
+            }
 
-          if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
-            throw new ForbiddenError(
-              'Access denied: You are not an active mentor in the specified batch',
-            );
-          }
+            if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
+              throw new ForbiddenError(
+                'Access denied: You are not an active mentor in the specified batch',
+              );
+            }
 
-          let mappings = await this.mentorMenteeRepo.findActiveMappingsForMentor(actor.id, bId);
-          if (mappings.length === 0) {
-            const allBatchMappings = await this.mentorMenteeRepo.findAllMappingsByBatch(bId);
-            mappings = allBatchMappings.filter((m) => m.mentorId === actor.id);
-          }
-          allowedMenteeIds.push(...mappings.map((m) => m.menteeId));
-        }
+            let mappings = await this.mentorMenteeRepo.findActiveMappingsForMentor(actor.id, bId);
+            if (mappings.length === 0) {
+              const allBatchMappings = await this.mentorMenteeRepo.findAllMappingsByBatch(bId);
+              mappings = allBatchMappings.filter((m) => m.mentorId === actor.id);
+            }
+            return mappings.map((m) => m.menteeId);
+          }),
+        );
+
+        const allowedMenteeIds = menteeIdArrays.flat();
 
         return {
           isSuperAdmin: false,
           mentorId: actor.id,
           scopedBatchId: requestedBatchIds[0],
+          scopedBatchIds: requestedBatchIds,
           allowedMenteeIds: [...new Set(allowedMenteeIds)],
         };
       }
