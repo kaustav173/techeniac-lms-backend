@@ -52,14 +52,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
 
   const sampleOverviewMetrics: PerformanceOverviewMetrics = {
     averageMarks: 85.5,
-    gradeDistribution: {
-      'A+': { count: 10, percentage: 50 },
-      A: { count: 6, percentage: 30 },
-      B: { count: 4, percentage: 20 },
-      C: { count: 0, percentage: 0 },
-      D: { count: 0, percentage: 0 },
-      F: { count: 0, percentage: 0 },
-    },
     onTimeRate: 90,
     completionPercentage: 75,
     overdueCount: 2,
@@ -82,7 +74,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
       onTimeSubmissions: 3,
       onTimeRate: 75,
       overdueCount: 1,
-      latestGrade: 'B',
     },
     {
       menteeId: 'mentee-2',
@@ -98,7 +89,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
       onTimeSubmissions: 4,
       onTimeRate: 100,
       overdueCount: 0,
-      latestGrade: 'A+',
     },
   ];
 
@@ -172,7 +162,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
                       isLate: false,
                       status: 'GRADED',
                       marks: 90,
-                      gradeLabel: 'A+',
                       feedback: 'Excellent work!',
                     },
                   ],

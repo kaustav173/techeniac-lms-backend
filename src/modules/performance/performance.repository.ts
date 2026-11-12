@@ -8,7 +8,6 @@ import { Submission, SubmissionStatus } from '../submissions';
 import { User, UserRole } from '../users';
 import type { PerformanceScopeFilter } from './performance.policy';
 import type {
-  GradeDistributionBucket,
   LearningHistoryAllocation,
   LearningHistoryAssignment,
   LearningHistoryBatch,
@@ -130,10 +129,6 @@ export class PerformanceRepository {
       subQb.andWhere('sub.submitted_at <= :endDate', { endDate: normalizeEndDate(filter.endDate) });
     }
 
-    if (filter.gradeRange && filter.gradeRange !== 'ALL') {
-      subQb.andWhere('sub.grade_label = :gradeLabel', { gradeLabel: filter.gradeRange });
-    }
-
     const subStats = await subQb
       .select([
         'COUNT(sub.id) as total_submissions',
@@ -155,37 +150,7 @@ export class PerformanceRepository {
     const onTimeRate =
       totalSubmissions > 0 ? parseFloat(((onTimeCount / totalSubmissions) * 100).toFixed(2)) : null;
 
-    // 3. Query grade distribution
-    const gradeRows = await subQb
-      .clone()
-      .andWhere('sub.status = :gradedStatus', { gradedStatus: SubmissionStatus.GRADED })
-      .andWhere('sub.grade_label IS NOT NULL')
-      .select(['sub.grade_label as grade', 'COUNT(sub.id) as count'])
-      .groupBy('sub.grade_label')
-      .getRawMany<{ grade: string; count: string }>();
-
-    const totalGraded = gradeRows.reduce((acc, row) => acc + parseInt(row.count, 10), 0);
-    const gradeDistribution: Record<'A+' | 'A' | 'B' | 'C' | 'D' | 'F', GradeDistributionBucket> = {
-      'A+': { count: 0, percentage: 0 },
-      A: { count: 0, percentage: 0 },
-      B: { count: 0, percentage: 0 },
-      C: { count: 0, percentage: 0 },
-      D: { count: 0, percentage: 0 },
-      F: { count: 0, percentage: 0 },
-    };
-
-    for (const row of gradeRows) {
-      const g = row.grade as keyof typeof gradeDistribution;
-      if (gradeDistribution[g] !== undefined) {
-        const count = parseInt(row.count, 10);
-        gradeDistribution[g] = {
-          count,
-          percentage: totalGraded > 0 ? parseFloat(((count / totalGraded) * 100).toFixed(2)) : 0,
-        };
-      }
-    }
-
-    // 4. Query course allocation stats (completion %, overdue count, total mentees)
+    // 3. Query course allocation stats (completion %, overdue count, total mentees)
     const allocQb = this.allocationRepo
       .createQueryBuilder('alloc')
       .where('alloc.deleted_at IS NULL');
@@ -252,7 +217,6 @@ export class PerformanceRepository {
 
     return {
       averageMarks,
-      gradeDistribution,
       onTimeRate,
       completionPercentage,
       overdueCount: totalOverdue,
@@ -358,12 +322,11 @@ export class PerformanceRepository {
     }
 
     const canPrePaginate =
-      (!filter.gradeRange || filter.gradeRange === 'ALL') &&
-      (!filter.sortBy ||
-        filter.sortBy === 'name' ||
-        filter.sortBy === 'completionPercentage' ||
-        filter.sortBy === 'batch' ||
-        filter.sortBy === 'courses');
+      !filter.sortBy ||
+      filter.sortBy === 'name' ||
+      filter.sortBy === 'completionPercentage' ||
+      filter.sortBy === 'batch' ||
+      filter.sortBy === 'courses';
 
     const order = filter.sortOrder === 'ASC' ? 1 : -1;
     const totalRaw = rawRows.length;
@@ -471,42 +434,8 @@ export class PerformanceRepository {
       .select(['alloc.user_id as user_id', 'COUNT(alloc.id) as count'])
       .groupBy('alloc.user_id');
 
-    // Latest grade label per mentee
-    const latestSubsQb = this.submissionRepo
-      .createQueryBuilder('sub')
-      .innerJoin(CourseAllocation, 'alloc', 'alloc.id = sub.course_allocation_id')
-      .where('alloc.user_id IN (:...menteeIds)', { menteeIds })
-      .andWhere('sub.status = :gradedStatus', { gradedStatus: SubmissionStatus.GRADED })
-      .andWhere('sub.deleted_at IS NULL');
-
-    if (filter.startDate) {
-      latestSubsQb.andWhere('sub.submitted_at >= :startDate', {
-        startDate: new Date(filter.startDate),
-      });
-    }
-    if (filter.endDate) {
-      latestSubsQb.andWhere('sub.submitted_at <= :endDate', {
-        endDate: normalizeEndDate(filter.endDate),
-      });
-    }
-    if (targetCourseIds && targetCourseIds.length > 0) {
-      latestSubsQb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
-    }
-    if (targetBatchIds && targetBatchIds.length > 0) {
-      latestSubsQb.andWhere(
-        '(sub.batch_id IN (:...targetBatchIds) OR alloc.batch_id IN (:...targetBatchIds))',
-        {
-          targetBatchIds,
-        },
-      );
-    }
-
-    latestSubsQb
-      .orderBy('sub.submitted_at', 'DESC')
-      .select(['alloc.user_id as user_id', 'sub.grade_label as grade_label']);
-
-    // Concurrently execute all three sub-queries
-    const [subAggregates, overdueAllocList, latestSubs] = await Promise.all([
+    // Concurrently execute sub-queries
+    const [subAggregates, overdueAllocList] = await Promise.all([
       subAggQb.getRawMany<{
         mentee_id: string;
         avg_marks: string | null;
@@ -514,7 +443,6 @@ export class PerformanceRepository {
         on_time_count: string;
       }>(),
       overdueAllocQb.getRawMany<{ user_id: string; count: string }>(),
-      latestSubsQb.getRawMany<{ user_id: string; grade_label: string }>(),
     ]);
 
     const subMap = new Map<
@@ -534,15 +462,8 @@ export class PerformanceRepository {
       overdueAllocMap.set(oa.user_id, parseInt(oa.count, 10));
     }
 
-    const latestGradeMap = new Map<string, string>();
-    for (const ls of latestSubs) {
-      if (!latestGradeMap.has(ls.user_id)) {
-        latestGradeMap.set(ls.user_id, ls.grade_label);
-      }
-    }
-
     // Compile rows
-    let enrichedRows: MenteePerformanceRow[] = targetRows.map((r) => {
+    const enrichedRows: MenteePerformanceRow[] = targetRows.map((r) => {
       const subInfo = subMap.get(r.mentee_id);
       const totalSubs = subInfo?.totalSub ?? 0;
       const onTimeSubs = subInfo?.onTimeSub ?? 0;
@@ -565,17 +486,11 @@ export class PerformanceRepository {
         onTimeSubmissions: onTimeSubs,
         onTimeRate,
         overdueCount: overdueAllocMap.get(r.mentee_id) ?? 0,
-        latestGrade: latestGradeMap.get(r.mentee_id) ?? null,
       };
     });
 
     if (canPrePaginate) {
       return { mentees: enrichedRows, total: totalRaw };
-    }
-
-    // Grade range filter check
-    if (filter.gradeRange && filter.gradeRange !== 'ALL') {
-      enrichedRows = enrichedRows.filter((r) => r.latestGrade === filter.gradeRange);
     }
 
     // Sorting (PER-02)
@@ -600,13 +515,6 @@ export class PerformanceRepository {
         case 'courses':
           cmp = (a.assignedCoursesCount - b.assignedCoursesCount) * order;
           break;
-        case 'grade': {
-          const gradeRank: Record<string, number> = { 'A+': 5, A: 4, B: 3, C: 2, D: 1, F: 0 };
-          const rankA = a.latestGrade ? (gradeRank[a.latestGrade] ?? -1) : -1;
-          const rankB = b.latestGrade ? (gradeRank[b.latestGrade] ?? -1) : -1;
-          cmp = (rankA - rankB) * order;
-          break;
-        }
         case 'name':
         default:
           cmp = a.menteeName.localeCompare(b.menteeName) * order;
@@ -697,7 +605,6 @@ export class PerformanceRepository {
         isLate: sub.isLate,
         status: sub.status,
         marks: sub.marks ? Number(sub.marks) : null,
-        gradeLabel: sub.gradeLabel ?? null,
         feedback: sub.feedback ?? null,
       });
       subsByAlloc.set(sub.courseAllocationId, list);
@@ -780,14 +687,6 @@ export class PerformanceRepository {
   private getEmptyOverview(): PerformanceOverviewMetrics {
     return {
       averageMarks: null,
-      gradeDistribution: {
-        'A+': { count: 0, percentage: 0 },
-        A: { count: 0, percentage: 0 },
-        B: { count: 0, percentage: 0 },
-        C: { count: 0, percentage: 0 },
-        D: { count: 0, percentage: 0 },
-        F: { count: 0, percentage: 0 },
-      },
       onTimeRate: null,
       completionPercentage: 0,
       overdueCount: 0,

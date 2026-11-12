@@ -413,3 +413,24 @@
   - `overdue-jobs` queue registers `daily-overdue-detection` (cron `0 0 * * *`, UTC) and `daily-deadline-reminders` (cron `0 8 * * *`, UTC).
   - Worker dispatches to `allocationsService.detectOverdueAllocations`, `allocationsService.processDeadlineReminders`, and `progressService.detectOverdueTopics`.
   - Emitted events (`allocation.overdueDetected`, `topic.overdueDetected`, `allocation.reminderDue`) serve as integration points for future notification delivery consumers.
+
+---
+
+## ADR-021: Elimination of Letter Grades in Favor of Quantitative Marks/Scores
+
+- **Date**: 2026-11-12
+- **Status**: Accepted
+- **Context**: The LMS system previously supported discrete letter grades (A+, A, B, C, D, F) alongside quantitative performance tracking (`marks`, `maxMarks`, `averageMarks`, `completionPercentage`, `onTimeRate`). Letter grades introduced arbitrary bucket thresholds, non-standard grade distributions, and unnecessary subqueries/complexity in performance repository queries and sorting.
+- **Options**:
+  1. Maintain dual-model support for both letter grades and numeric marks with configurable grading scales.
+  2. Eliminate letter grades entirely across schemas, database queries, DTOs, and CSV exports, establishing numeric scores/percentages as the single source of truth for mentee evaluation.
+- **Choice**: Option 2 (Pure quantitative scoring model).
+- **Reasons**:
+  - **Single Source of Truth**: Eliminates conflicting evaluations where letter grade buckets did not accurately reflect raw mark percentages.
+  - **Query & Sorting Simplification**: Removes the `latestSubsQb` subquery and in-memory letter grade ranking lookups from `PerformanceRepository.getMenteePerformanceList`, simplifying queries and boosting performance.
+  - **Consistent API Contracts**: Cleaned `sortBy` enums, query filters, metrics overviews, and CSV exports to solely represent numeric performance metrics (`averageMarks`, `completionPercentage`, `onTimeRate`).
+- **Consequences**:
+  - `gradeRange` filter and `'grade'` sorting parameter are removed from `performanceFilterSchema` and `exportPerformanceSchema`.
+  - `GradeDistributionBucket` and `gradeDistribution` metrics are eliminated from `PerformanceOverviewMetrics`.
+  - `MenteePerformanceRow.latestGrade` and `LearningHistoryAssignment.gradeLabel` fields are removed from backend DTOs.
+  - CSV exports omit the 'Latest Grade' column in favor of exact score and progress numbers.

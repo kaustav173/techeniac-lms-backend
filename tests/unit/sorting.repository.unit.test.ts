@@ -308,26 +308,18 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
         completed_courses_count: string;
         avg_progress: string;
       }>,
-      latestGrades: Array<{ user_id: string; grade_label: string }> = [],
     ) {
       const userQb = createChainableQb(() => Promise.resolve(rawUsers));
 
-      let subCallCount = 0;
       const subQb = createChainableQb(() => {
-        subCallCount++;
-        if (subCallCount === 1) {
-          // subAggQb: total_submissions, on_time_submissions, avg_marks
-          return Promise.resolve(
-            rawUsers.map((u) => ({
-              user_id: u.mentee_id,
-              total_submissions: '5',
-              on_time_submissions: '5',
-              avg_marks: '85',
-            })),
-          );
-        }
-        // latestSubsQb: user_id, grade_label
-        return Promise.resolve(latestGrades);
+        return Promise.resolve(
+          rawUsers.map((u) => ({
+            user_id: u.mentee_id,
+            total_submissions: '5',
+            on_time_submissions: '5',
+            avg_marks: '85',
+          })),
+        );
       });
 
       const allocQb = createChainableQb(() => Promise.resolve([]));
@@ -344,157 +336,6 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
 
       return mockDb;
     }
-
-    void it('F-001 / F-002: ranks A+ strictly above A in descending sortBy="grade"', async () => {
-      const mockUsers = [
-        {
-          mentee_id: 'user-a',
-          mentee_name: 'Mentee A',
-          mentee_email: 'a@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '1',
-          avg_progress: '50',
-        },
-        {
-          mentee_id: 'user-a-plus',
-          mentee_name: 'Mentee A Plus',
-          mentee_email: 'aplus@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '1',
-          avg_progress: '50',
-        },
-        {
-          mentee_id: 'user-b',
-          mentee_name: 'Mentee B',
-          mentee_email: 'b@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '1',
-          avg_progress: '50',
-        },
-        {
-          mentee_id: 'user-f',
-          mentee_name: 'Mentee F',
-          mentee_email: 'f@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '0',
-          avg_progress: '20',
-        },
-      ];
-
-      const latestGrades = [
-        { user_id: 'user-a', grade_label: 'A' },
-        { user_id: 'user-a-plus', grade_label: 'A+' },
-        { user_id: 'user-b', grade_label: 'B' },
-        { user_id: 'user-f', grade_label: 'F' },
-      ];
-
-      const repo = new PerformanceRepository(setupMockPerformanceDb(mockUsers, latestGrades));
-
-      const descResult = await repo.getMenteePerformanceList(
-        { page: 1, limit: 10, sortBy: 'grade', sortOrder: 'DESC' },
-        adminScope,
-      );
-
-      // Verify A+ is strictly first before A, B, F in descending order
-      assert.strictEqual(descResult.mentees[0]?.latestGrade, 'A+');
-      assert.strictEqual(descResult.mentees[0]?.menteeId, 'user-a-plus');
-      assert.strictEqual(descResult.mentees[1]?.latestGrade, 'A');
-      assert.strictEqual(descResult.mentees[1]?.menteeId, 'user-a');
-      assert.strictEqual(descResult.mentees[2]?.latestGrade, 'B');
-      assert.strictEqual(descResult.mentees[3]?.latestGrade, 'F');
-    });
-
-    void it('ranks A before A+ in ascending sortBy="grade"', async () => {
-      const mockUsers = [
-        {
-          mentee_id: 'user-a',
-          mentee_name: 'Mentee A',
-          mentee_email: 'a@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '1',
-          avg_progress: '50',
-        },
-        {
-          mentee_id: 'user-a-plus',
-          mentee_name: 'Mentee A Plus',
-          mentee_email: 'aplus@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '1',
-          avg_progress: '50',
-        },
-      ];
-
-      const latestGrades = [
-        { user_id: 'user-a', grade_label: 'A' },
-        { user_id: 'user-a-plus', grade_label: 'A+' },
-      ];
-
-      const repo = new PerformanceRepository(setupMockPerformanceDb(mockUsers, latestGrades));
-
-      const ascResult = await repo.getMenteePerformanceList(
-        { page: 1, limit: 10, sortBy: 'grade', sortOrder: 'ASC' },
-        adminScope,
-      );
-
-      // In ascending order, lower rank (A = 4) comes before higher rank (A+ = 5)
-      assert.strictEqual(ascResult.mentees[0]?.latestGrade, 'A');
-      assert.strictEqual(ascResult.mentees[0]?.menteeId, 'user-a');
-      assert.strictEqual(ascResult.mentees[1]?.latestGrade, 'A+');
-      assert.strictEqual(ascResult.mentees[1]?.menteeId, 'user-a-plus');
-    });
-
-    void it('F-004: breaks ties deterministically by menteeName / menteeId for identical grades', async () => {
-      const mockUsers = [
-        {
-          mentee_id: 'user-2',
-          mentee_name: 'Zoe',
-          mentee_email: 'zoe@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '1',
-          avg_progress: '50',
-        },
-        {
-          mentee_id: 'user-1',
-          mentee_name: 'Alex',
-          mentee_email: 'alex@test.com',
-          batch_id: 'batch-1',
-          batch_name: 'Batch Alpha',
-          assigned_courses_count: '2',
-          completed_courses_count: '1',
-          avg_progress: '50',
-        },
-      ];
-
-      const latestGrades = [
-        { user_id: 'user-2', grade_label: 'A+' },
-        { user_id: 'user-1', grade_label: 'A+' },
-      ];
-
-      const repo = new PerformanceRepository(setupMockPerformanceDb(mockUsers, latestGrades));
-
-      const result = await repo.getMenteePerformanceList(
-        { page: 1, limit: 10, sortBy: 'grade', sortOrder: 'DESC' },
-        adminScope,
-      );
-
-      // Both are A+, so secondary tiebreak by menteeName puts Alex before Zoe
-      assert.strictEqual(result.mentees[0]?.menteeName, 'Alex');
-      assert.strictEqual(result.mentees[1]?.menteeName, 'Zoe');
-    });
 
     void it('sorts by batch name with deterministic tiebreak', async () => {
       const mockUsers = [

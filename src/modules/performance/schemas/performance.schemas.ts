@@ -57,7 +57,6 @@ export const performanceFilterSchema = z.object({
       .datetime({ offset: true })
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
       .optional(),
-    gradeRange: z.enum(['A+', 'A', 'B', 'C', 'D', 'F', 'ALL']).optional(),
     status: createDelimitedFilterSchema(
       z.nativeEnum(CourseAllocationStatus),
       20,
@@ -80,7 +79,6 @@ export const performanceFilterSchema = z.object({
         'name',
         'batch',
         'courses',
-        'grade',
       ])
       .optional()
       .default('name'),
@@ -125,7 +123,6 @@ export const exportPerformanceSchema = z.object({
       .datetime({ offset: true })
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
       .optional(),
-    gradeRange: z.enum(['A+', 'A', 'B', 'C', 'D', 'F', 'ALL']).optional(),
     status: createDelimitedFilterSchema(
       z.nativeEnum(CourseAllocationStatus),
       20,
@@ -146,7 +143,6 @@ export const exportPerformanceSchema = z.object({
         'name',
         'batch',
         'courses',
-        'grade',
       ])
       .optional()
       .default('name'),
@@ -172,14 +168,8 @@ export type PerformanceFilterQuery = z.infer<typeof performanceFilterSchema>['qu
 export type ExportPerformanceQuery = z.infer<typeof exportPerformanceSchema>['query'];
 export type LearningHistoryQuery = z.infer<typeof learningHistoryQuerySchema>['query'];
 
-export interface GradeDistributionBucket {
-  count: number;
-  percentage: number;
-}
-
 export interface PerformanceOverviewMetrics {
   averageMarks: number | null;
-  gradeDistribution: Record<'A+' | 'A' | 'B' | 'C' | 'D' | 'F', GradeDistributionBucket>;
   onTimeRate: number | null;
   completionPercentage: number;
   overdueCount: number;
@@ -201,7 +191,6 @@ export interface MenteePerformanceRow {
   onTimeSubmissions: number;
   onTimeRate: number;
   overdueCount: number;
-  latestGrade: string | null;
 }
 
 export interface PaginatedPerformanceResult {
@@ -225,7 +214,6 @@ export interface LearningHistoryAssignment {
   isLate: boolean;
   status: string;
   marks: number | null;
-  gradeLabel: string | null;
   feedback: string | null;
 }
 
