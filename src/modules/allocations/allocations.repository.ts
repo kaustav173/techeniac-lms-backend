@@ -262,7 +262,13 @@ export class AllocationsRepository {
       }
 
       if (regularStatuses.length > 0) {
-        statusClauses.push('allocation.status IN (:...regularStatuses)');
+        if (isOverdueSelected) {
+          statusClauses.push('allocation.status IN (:...regularStatuses)');
+        } else {
+          statusClauses.push(
+            '(allocation.status IN (:...regularStatuses) AND (allocation.dueDate >= :now OR allocation.status IN (:...terminalStatuses)))',
+          );
+        }
       }
 
       if (statusClauses.length > 0) {
