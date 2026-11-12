@@ -291,31 +291,48 @@ export class AllocationsRepository {
       const rawSearch = query.search.trim();
       const searchPattern = `%${rawSearch}%`;
       const sLower = rawSearch.toLowerCase();
+      const sNorm = sLower.replace(/[-_]/g, ' ').trim();
 
       const searchClauses: string[] = [
         'course.title ILIKE :search',
-        'user.name ILIKE :search',
-        'user.email ILIKE :search',
         'batch.name ILIKE :search',
         'batch.code ILIKE :search',
       ];
 
+      // Only search user name/email when the query is NOT already scoped to a specific mentee/user
+      if (!query.menteeId && !enforcedUserId) {
+        searchClauses.push('user.name ILIKE :search');
+        if (!['com', 'org', 'net', 'io', 'co', 'in'].includes(sLower) || rawSearch.includes('@')) {
+          searchClauses.push('user.email ILIKE :search');
+        }
+      }
+
       // Smart status matching based on display labels
-      if (sLower.length >= 3) {
-        if ('completed'.startsWith(sLower) || 'complete'.startsWith(sLower)) {
+      if (sNorm.length >= 3) {
+        if (
+          'completed'.startsWith(sNorm) ||
+          'complete'.startsWith(sNorm) ||
+          sNorm === 'done' ||
+          'finished'.startsWith(sNorm)
+        ) {
           searchClauses.push(`allocation.status = '${CourseAllocationStatus.COMPLETED}'`);
         }
-        if ('assigned'.startsWith(sLower) || 'assign'.startsWith(sLower)) {
+        if ('assigned'.startsWith(sNorm) || 'assign'.startsWith(sNorm)) {
           searchClauses.push(`allocation.status = '${CourseAllocationStatus.ASSIGNED}'`);
         }
         if (
-          'in progress'.startsWith(sLower) ||
-          'progress'.startsWith(sLower) ||
-          'active'.startsWith(sLower)
+          'in progress'.startsWith(sNorm) ||
+          'progress'.startsWith(sNorm) ||
+          'active'.startsWith(sNorm) ||
+          'ongoing'.startsWith(sNorm)
         ) {
           searchClauses.push(`allocation.status = '${CourseAllocationStatus.IN_PROGRESS}'`);
         }
-        if ('overdue'.startsWith(sLower)) {
+        if (
+          'overdue'.startsWith(sNorm) ||
+          'late'.startsWith(sNorm) ||
+          'expired'.startsWith(sNorm)
+        ) {
           searchClauses.push(
             `(allocation.dueDate < :searchNow AND allocation.status NOT IN ('${CourseAllocationStatus.COMPLETED}', '${CourseAllocationStatus.REVOKED}', '${CourseAllocationStatus.CLOSED_ROLE_CHANGE}', '${CourseAllocationStatus.CLOSED_BATCH_CHANGE}'))`,
           );
