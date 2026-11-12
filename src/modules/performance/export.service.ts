@@ -17,7 +17,6 @@ export class ExportService {
       'On-Time Submissions',
       'On-Time Rate %',
       'Overdue Count',
-      'Latest Grade',
     ];
 
     const escapeCsv = (val: string | number | null | undefined): string => {
@@ -45,7 +44,6 @@ export class ExportService {
           escapeCsv(row.onTimeSubmissions),
           escapeCsv(`${row.onTimeRate}%`),
           escapeCsv(row.overdueCount),
-          escapeCsv(row.latestGrade ?? 'N/A'),
         ].join(','),
       );
     }

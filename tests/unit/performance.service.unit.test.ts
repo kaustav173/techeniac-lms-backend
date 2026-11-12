@@ -9,6 +9,7 @@ import {
   type LearningHistoryResult,
   type MenteePerformanceRow,
   type PerformanceFilterQuery,
+  performanceFilterSchema,
   type PerformanceOverviewMetrics,
   PerformancePolicy,
   PerformanceRepository,
@@ -51,14 +52,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
 
   const sampleOverviewMetrics: PerformanceOverviewMetrics = {
     averageMarks: 85.5,
-    gradeDistribution: {
-      'A+': { count: 10, percentage: 50 },
-      A: { count: 6, percentage: 30 },
-      B: { count: 4, percentage: 20 },
-      C: { count: 0, percentage: 0 },
-      D: { count: 0, percentage: 0 },
-      F: { count: 0, percentage: 0 },
-    },
     onTimeRate: 90,
     completionPercentage: 75,
     overdueCount: 2,
@@ -81,7 +74,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
       onTimeSubmissions: 3,
       onTimeRate: 75,
       overdueCount: 1,
-      latestGrade: 'B',
     },
     {
       menteeId: 'mentee-2',
@@ -97,7 +89,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
       onTimeSubmissions: 4,
       onTimeRate: 100,
       overdueCount: 0,
-      latestGrade: 'A+',
     },
   ];
 
@@ -171,7 +162,6 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
                       isLate: false,
                       status: 'GRADED',
                       marks: 90,
-                      gradeLabel: 'A+',
                       feedback: 'Excellent work!',
                     },
                   ],
@@ -408,5 +398,97 @@ void describe('Module 11: Performance & My Performance Unit Tests (PER-01 to PER
     assert.strictEqual(result.metrics.completionPercentage, 82.5);
     assert.strictEqual(result.metrics.overdueCount, 5);
     assert.strictEqual(result.metrics.onTimeRate, 94.2);
+  });
+
+  void it('Multi-Batch Mentor Authorization: resolves and deduplicates mentees across multiple batches', async () => {
+    let capturedScope: PerformanceScopeFilter | undefined;
+    mockRepo.getMenteePerformanceList = (_filter, scope) => {
+      capturedScope = scope;
+      return Promise.resolve({ mentees: sampleMentees, total: sampleMentees.length });
+    };
+
+    mockBatchRepo.findActiveMemberInBatch = () =>
+      Promise.resolve({ memberRole: BatchMemberRole.MENTOR });
+    mockMentorMenteeRepo.findActiveMappingsForMentor = (_mentorId, batchId) => {
+      if (batchId === 'batch-1') {
+        return Promise.resolve([{ menteeId: 'mentee-1' }, { menteeId: 'mentee-2' }]);
+      }
+      return Promise.resolve([{ menteeId: 'mentee-2' }, { menteeId: 'mentee-3' }]);
+    };
+
+    const filter: PerformanceFilterQuery = {
+      batchIds: ['batch-1', 'batch-2'],
+      page: 1,
+      limit: 10,
+      sortBy: 'name',
+      sortOrder: 'DESC',
+    };
+
+    await service.getPerformance(mentor, filter);
+    assert.deepStrictEqual(capturedScope?.scopedBatchIds, ['batch-1', 'batch-2']);
+    assert.deepStrictEqual(capturedScope?.allowedMenteeIds, ['mentee-1', 'mentee-2', 'mentee-3']);
+  });
+
+  void it('Multi-Batch Mentor Authorization: throws ForbiddenError if mentor is unauthorized for any batch', async () => {
+    mockBatchRepo.findActiveMemberInBatch = (bId) => {
+      if (bId === 'batch-unauthorized') return Promise.resolve(null);
+      return Promise.resolve({ memberRole: BatchMemberRole.MENTOR });
+    };
+    mockBatchRepo.findMemberInBatch = (bId) => {
+      if (bId === 'batch-unauthorized') return Promise.resolve(null);
+      return Promise.resolve({ memberRole: BatchMemberRole.MENTOR });
+    };
+
+    const filter: PerformanceFilterQuery = {
+      batchIds: ['batch-1', 'batch-unauthorized'],
+      page: 1,
+      limit: 10,
+      sortBy: 'name',
+      sortOrder: 'DESC',
+    };
+
+    await assert.rejects(
+      async () => service.getPerformance(mentor, filter),
+      (err: Error) =>
+        err instanceof ForbiddenError &&
+        err.message.includes('You are not an active mentor in the specified batch'),
+    );
+  });
+
+  void it('Validation Schema: rejects invalid UUIDs, invalid statuses, and >20 items', () => {
+    // 1. Rejects invalid single UUID in batchId
+    const resInvalidBatch = performanceFilterSchema.safeParse({
+      query: { batchId: 'not-a-valid-uuid' },
+    });
+    assert.strictEqual(resInvalidBatch.success, false);
+
+    // 2. Rejects comma-separated containing invalid UUID
+    const resInvalidCommaBatch = performanceFilterSchema.safeParse({
+      query: { batchId: '550e8400-e29b-41d4-a716-446655440000,not-a-uuid' },
+    });
+    assert.strictEqual(resInvalidCommaBatch.success, false);
+
+    // 3. Rejects invalid status enum
+    const resInvalidStatus = performanceFilterSchema.safeParse({
+      query: { status: 'TOTALLY_BOGUS' },
+    });
+    assert.strictEqual(resInvalidStatus.success, false);
+
+    // 4. Rejects > 20 items in batchIds
+    const tooMany = Array(21).fill('550e8400-e29b-41d4-a716-446655440000');
+    const resTooMany = performanceFilterSchema.safeParse({
+      query: { batchIds: tooMany },
+    });
+    assert.strictEqual(resTooMany.success, false);
+
+    // 5. Accepts valid single and comma-separated UUIDs
+    const resValid = performanceFilterSchema.safeParse({
+      query: {
+        batchId: '550e8400-e29b-41d4-a716-446655440000',
+        batchIds: '550e8400-e29b-41d4-a716-446655440000,550e8400-e29b-41d4-a716-446655440001',
+        status: 'ASSIGNED,IN_PROGRESS',
+      },
+    });
+    assert.strictEqual(resValid.success, true);
   });
 });

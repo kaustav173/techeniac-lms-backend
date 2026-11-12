@@ -25,7 +25,10 @@ export class PerformanceService {
     actor: AuthenticatedUser,
     filter: PerformanceFilterQuery,
   ): Promise<PaginatedPerformanceResult> {
-    const scope = await this.policy.resolvePerformanceScope(actor, filter.batchId);
+    const scope = await this.policy.resolvePerformanceScope(
+      actor,
+      filter.batchIds ?? filter.batchId,
+    );
 
     const [metrics, { mentees, total }] = await Promise.all([
       this.repo.getPerformanceOverview(filter, scope),
@@ -53,7 +56,10 @@ export class PerformanceService {
     actor: AuthenticatedUser,
     filter: ExportPerformanceQuery,
   ): Promise<{ csvData: string; filename: string }> {
-    const scope = await this.policy.resolvePerformanceScope(actor, filter.batchId);
+    const scope = await this.policy.resolvePerformanceScope(
+      actor,
+      filter.batchIds ?? filter.batchId,
+    );
 
     // Retrieve full filtered dataset across pages until exhausted without arbitrary truncation
     const pageSize = 1000;
