@@ -30,7 +30,7 @@ async function runAuditTests(): Promise<void> {
 
   const address = server.address();
   const port = typeof address === 'object' && address ? address.port : 4000;
-  const baseUrl = `http://127.0.0.1:${port}/api/v1/audit-logs`;
+  const baseUrl = `http://127.0.0.1:${port}/api/v1/logs`;
 
   let failures = 0;
 

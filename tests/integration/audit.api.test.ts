@@ -96,7 +96,7 @@ void describe('Audit Log API Integration Tests (Module 14: AUD-01 to AUD-05)', (
 
     const addr = server.address();
     const port = typeof addr === 'object' && addr ? addr.port : 4000;
-    baseUrl = `http://127.0.0.1:${port}/api/v1/audit-logs`;
+    baseUrl = `http://127.0.0.1:${port}/api/v1/logs`;
   });
 
   beforeEach(() => {

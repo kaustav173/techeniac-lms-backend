@@ -36,6 +36,7 @@ export interface AllocationContext {
 export interface AssignmentWithSubmissionStatus {
   id: string;
   courseId: string;
+  allocationId?: string;
   courseTitle: string;
   topicId: string | null;
   topicTitle: string | null;
@@ -162,6 +163,7 @@ export class SubmissionsService {
       items.push({
         id: assignment.id,
         courseId: assignment.courseId,
+        allocationId: alloc.allocationId,
         courseTitle: assignment.course?.title || '',
         topicId: assignment.topicId,
         topicTitle: assignment.topic?.title || null,

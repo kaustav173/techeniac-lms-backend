@@ -37,28 +37,23 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
         },
         skip: () => qb,
         take: () => qb,
+        offset: () => qb,
+        limit: () => qb,
         getManyAndCount: () => Promise.resolve([[], 0] as [CourseAllocation[], number]),
       };
       return { qb: qb as unknown as SelectQueryBuilder<CourseAllocation>, orderBys };
     }
 
     const sortBranchMappings: Array<{
-      sortBy:
-        'course' | 'mentee' | 'batch' | 'started' | 'due' | 'progress' | 'status' | 'createdAt';
+      sortBy: 'course' | 'mentee' | 'batch' | 'startDate' | 'dueDate' | 'createdAt';
       expectedColumn: string;
       hasSecondaryTiebreak: boolean;
     }> = [
-      { sortBy: 'course', expectedColumn: 'course.title', hasSecondaryTiebreak: true },
-      { sortBy: 'mentee', expectedColumn: 'user.name', hasSecondaryTiebreak: true },
-      { sortBy: 'batch', expectedColumn: 'batch.name', hasSecondaryTiebreak: true },
-      { sortBy: 'started', expectedColumn: 'allocation.startDate', hasSecondaryTiebreak: true },
-      { sortBy: 'due', expectedColumn: 'allocation.dueDate', hasSecondaryTiebreak: true },
-      {
-        sortBy: 'progress',
-        expectedColumn: 'allocation.progressPercent',
-        hasSecondaryTiebreak: true,
-      },
-      { sortBy: 'status', expectedColumn: 'allocation.status', hasSecondaryTiebreak: true },
+      { sortBy: 'course', expectedColumn: 'LOWER(course.title)', hasSecondaryTiebreak: true },
+      { sortBy: 'mentee', expectedColumn: 'LOWER(user.name)', hasSecondaryTiebreak: true },
+      { sortBy: 'batch', expectedColumn: 'LOWER(batch.name)', hasSecondaryTiebreak: true },
+      { sortBy: 'startDate', expectedColumn: 'allocation.startDate', hasSecondaryTiebreak: true },
+      { sortBy: 'dueDate', expectedColumn: 'allocation.dueDate', hasSecondaryTiebreak: true },
       { sortBy: 'createdAt', expectedColumn: 'allocation.createdAt', hasSecondaryTiebreak: false },
     ];
 
@@ -73,7 +68,7 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
 
         await repo.listAllocations({ page: 1, limit: 10, sortBy, sortOrder: 'ASC' });
 
-        assert.strictEqual(orderBys.length, hasSecondaryTiebreak ? 2 : 1);
+        assert.strictEqual(orderBys.length, hasSecondaryTiebreak ? 3 : 2);
         assert.strictEqual(orderBys[0]?.column, expectedColumn);
         assert.strictEqual(orderBys[0]?.direction, 'ASC');
         assert.strictEqual(orderBys[0]?.isSecondary, false);
@@ -82,6 +77,9 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
           assert.strictEqual(orderBys[1]?.column, 'allocation.createdAt');
           assert.strictEqual(orderBys[1]?.direction, 'DESC');
           assert.strictEqual(orderBys[1]?.isSecondary, true);
+          assert.strictEqual(orderBys[2]?.column, 'allocation.id');
+        } else {
+          assert.strictEqual(orderBys[1]?.column, 'allocation.id');
         }
       });
     }
@@ -96,9 +94,10 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
 
       await repo.listAllocations({ page: 1, limit: 10 });
 
-      assert.strictEqual(orderBys.length, 1);
+      assert.strictEqual(orderBys.length, 2);
       assert.strictEqual(orderBys[0]?.column, 'allocation.createdAt');
       assert.strictEqual(orderBys[0]?.direction, 'DESC');
+      assert.strictEqual(orderBys[1]?.column, 'allocation.id');
     });
 
     void it('correctly applies sortOrder="DESC" for custom sort column', async () => {
@@ -109,12 +108,13 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
         configurable: true,
       });
 
-      await repo.listAllocations({ page: 1, limit: 10, sortBy: 'progress', sortOrder: 'DESC' });
+      await repo.listAllocations({ page: 1, limit: 10, sortBy: 'course', sortOrder: 'DESC' });
 
-      assert.strictEqual(orderBys[0]?.column, 'allocation.progressPercent');
+      assert.strictEqual(orderBys[0]?.column, 'LOWER(course.title)');
       assert.strictEqual(orderBys[0]?.direction, 'DESC');
       assert.strictEqual(orderBys[1]?.column, 'allocation.createdAt');
       assert.strictEqual(orderBys[1]?.direction, 'DESC');
+      assert.strictEqual(orderBys[2]?.column, 'allocation.id');
     });
   });
 
@@ -178,6 +178,8 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
         setParameters: () => qb,
         skip: () => qb,
         take: () => qb,
+        offset: () => qb,
+        limit: () => qb,
         from: () => qb,
         subQuery: () => qb,
         getQuery: () => 'SELECT 1',
@@ -605,15 +607,15 @@ void describe('Repository Server-Side Sorting Unit Tests (F-002)', () => {
   });
 
   void describe('Sort Schema Validation & Transform Unit Tests', () => {
-    void it('listAllocationsQuerySchema normalizes sortOrder to uppercase with DESC default', () => {
+    void it('listAllocationsQuerySchema normalizes sortOrder with desc default', () => {
       const parsedAsc = listAllocationsQuerySchema.shape.query.parse({ sortOrder: 'asc' });
-      assert.strictEqual(parsedAsc.sortOrder, 'ASC');
+      assert.strictEqual(parsedAsc.sortOrder, 'asc');
 
       const parsedDesc = listAllocationsQuerySchema.shape.query.parse({ sortOrder: 'desc' });
-      assert.strictEqual(parsedDesc.sortOrder, 'DESC');
+      assert.strictEqual(parsedDesc.sortOrder, 'desc');
 
       const parsedDefault = listAllocationsQuerySchema.shape.query.parse({});
-      assert.strictEqual(parsedDefault.sortOrder, 'DESC');
+      assert.strictEqual(parsedDefault.sortOrder, 'desc');
     });
 
     void it('submissionQueueQuerySchema normalizes sortOrder without overriding omitted state', () => {
