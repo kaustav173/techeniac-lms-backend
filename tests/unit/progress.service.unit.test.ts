@@ -1294,7 +1294,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
       return { qb, andWhereClauses, parametersList };
     };
 
-    void it('does not match status clauses for short name fragments like Ted, cha, chan, Tran, Ran, Due, Ass, Sig, Gre, Res, Ver, Fer', async () => {
+    void it('does not match status clauses for short name fragments like Ted, cha, chan, Tran, Ran, Due, Ass, Sig, Gre, Res, Ver, Fer, pro, ove, rol, rev, bat', async () => {
       const fragments = [
         'Ted',
         'cha',
@@ -1308,6 +1308,11 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
         'Res',
         'Ver',
         'Fer',
+        'pro',
+        'ove',
+        'rol',
+        'rev',
+        'bat',
       ];
 
       for (const frag of fragments) {
@@ -1331,6 +1336,7 @@ void describe('ProgressService Unit Tests (PRD M8: PRG-01 to PRG-20)', () => {
 
     void it('matches expected status clauses for genuine status searches', async () => {
       const testCases = [
+        { search: 'com', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
         { search: 'comp', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
         { search: 'complete', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
         { search: 'completed', expected: `alloc.status = '${CourseAllocationStatus.COMPLETED}'` },
