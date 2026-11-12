@@ -28,7 +28,7 @@
     "test:performance": "tsx scripts/test-performance-endpoints.ts",
     "test:audit": "tsx scripts/test-audit-endpoints.ts",
     "seed:admin": "tsx --env-file=.env scripts/seed-admin.ts",
-    "prepare": "husky"
+    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') require('child_process').execSync('husky', { stdio: 'inherit' })\""
   },
   "dependencies": {
     "@bull-board/api": "^9.10.5",
