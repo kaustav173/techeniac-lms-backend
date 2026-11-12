@@ -4,9 +4,53 @@ import { CourseAllocationStatus } from '../../allocations';
 
 export const performanceFilterSchema = z.object({
   query: z.object({
-    batchId: z.string().uuid({ message: 'batchId must be a valid UUID' }).optional(),
+    batchId: z
+      .union([
+        z.string().uuid(),
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
+    batchIds: z
+      .union([
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
     mentorId: z.string().uuid({ message: 'mentorId must be a valid UUID' }).optional(),
-    courseId: z.string().uuid({ message: 'courseId must be a valid UUID' }).optional(),
+    courseId: z
+      .union([
+        z.string().uuid(),
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
+    courseIds: z
+      .union([
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
     startDate: z
       .string()
       .datetime({ offset: true })
@@ -18,7 +62,31 @@ export const performanceFilterSchema = z.object({
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
       .optional(),
     gradeRange: z.enum(['A+', 'A', 'B', 'C', 'D', 'F', 'ALL']).optional(),
-    status: z.nativeEnum(CourseAllocationStatus).optional(),
+    status: z
+      .union([
+        z.nativeEnum(CourseAllocationStatus),
+        z.string().transform(
+          (val) =>
+            val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean) as CourseAllocationStatus[],
+        ),
+        z.array(z.nativeEnum(CourseAllocationStatus)),
+      ])
+      .optional(),
+    statuses: z
+      .union([
+        z.string().transform(
+          (val) =>
+            val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean) as CourseAllocationStatus[],
+        ),
+        z.array(z.nativeEnum(CourseAllocationStatus)),
+      ])
+      .optional(),
     search: z.string().trim().optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
@@ -45,9 +113,53 @@ export const performanceFilterSchema = z.object({
 
 export const exportPerformanceSchema = z.object({
   query: z.object({
-    batchId: z.string().uuid().optional(),
+    batchId: z
+      .union([
+        z.string().uuid(),
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
+    batchIds: z
+      .union([
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
     mentorId: z.string().uuid().optional(),
-    courseId: z.string().uuid().optional(),
+    courseId: z
+      .union([
+        z.string().uuid(),
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
+    courseIds: z
+      .union([
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
     startDate: z
       .string()
       .datetime({ offset: true })
@@ -59,7 +171,31 @@ export const exportPerformanceSchema = z.object({
       .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
       .optional(),
     gradeRange: z.enum(['A+', 'A', 'B', 'C', 'D', 'F', 'ALL']).optional(),
-    status: z.nativeEnum(CourseAllocationStatus).optional(),
+    status: z
+      .union([
+        z.nativeEnum(CourseAllocationStatus),
+        z.string().transform(
+          (val) =>
+            val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean) as CourseAllocationStatus[],
+        ),
+        z.array(z.nativeEnum(CourseAllocationStatus)),
+      ])
+      .optional(),
+    statuses: z
+      .union([
+        z.string().transform(
+          (val) =>
+            val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean) as CourseAllocationStatus[],
+        ),
+        z.array(z.nativeEnum(CourseAllocationStatus)),
+      ])
+      .optional(),
     search: z.string().trim().optional(),
     sortBy: z
       .enum([

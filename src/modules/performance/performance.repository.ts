@@ -25,6 +25,19 @@ function normalizeEndDate(dateStr: string): Date {
   return new Date(dateStr);
 }
 
+function toArray<T>(val: T | T[] | undefined): T[] | undefined {
+  if (val === undefined || val === null) return undefined;
+  if (Array.isArray(val)) return val.length > 0 ? val : undefined;
+  if (typeof val === 'string') {
+    const parts = val
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean) as unknown as T[];
+    return parts.length > 0 ? parts : undefined;
+  }
+  return [val];
+}
+
 export class PerformanceRepository {
   private readonly db: DataSource;
 
@@ -78,7 +91,11 @@ export class PerformanceRepository {
       return this.getEmptyOverview();
     }
 
-    const targetBatchId = filter.batchId ?? scope.scopedBatchId;
+    const targetBatchIds =
+      toArray(filter.batchIds ?? filter.batchId) ??
+      (scope.scopedBatchId ? [scope.scopedBatchId] : undefined);
+    const targetCourseIds = toArray(filter.courseIds ?? filter.courseId);
+    const targetStatuses = toArray(filter.statuses ?? filter.status);
 
     // 2. Query submission aggregates
     const subQb = this.submissionRepo
@@ -87,18 +104,21 @@ export class PerformanceRepository {
       .where('sub.deleted_at IS NULL')
       .andWhere('alloc.deleted_at IS NULL');
 
-    if (targetBatchId) {
-      subQb.andWhere('(sub.batch_id = :batchId OR alloc.batch_id = :batchId)', {
-        batchId: targetBatchId,
-      });
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      subQb.andWhere(
+        '(sub.batch_id IN (:...targetBatchIds) OR alloc.batch_id IN (:...targetBatchIds))',
+        {
+          targetBatchIds,
+        },
+      );
     }
 
     if (resolvedMenteeIds && resolvedMenteeIds.length > 0) {
       subQb.andWhere('alloc.user_id IN (:...menteeIds)', { menteeIds: resolvedMenteeIds });
     }
 
-    if (filter.courseId) {
-      subQb.andWhere('alloc.course_id = :courseId', { courseId: filter.courseId });
+    if (targetCourseIds && targetCourseIds.length > 0) {
+      subQb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
     }
 
     if (filter.startDate) {
@@ -169,20 +189,20 @@ export class PerformanceRepository {
       .createQueryBuilder('alloc')
       .where('alloc.deleted_at IS NULL');
 
-    if (targetBatchId) {
-      allocQb.andWhere('alloc.batch_id = :batchId', { batchId: targetBatchId });
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      allocQb.andWhere('alloc.batch_id IN (:...targetBatchIds)', { targetBatchIds });
     }
 
     if (resolvedMenteeIds && resolvedMenteeIds.length > 0) {
       allocQb.andWhere('alloc.user_id IN (:...menteeIds)', { menteeIds: resolvedMenteeIds });
     }
 
-    if (filter.courseId) {
-      allocQb.andWhere('alloc.course_id = :courseId', { courseId: filter.courseId });
+    if (targetCourseIds && targetCourseIds.length > 0) {
+      allocQb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
     }
 
-    if (filter.status) {
-      allocQb.andWhere('alloc.status = :status', { status: filter.status });
+    if (targetStatuses && targetStatuses.length > 0) {
+      allocQb.andWhere('alloc.status IN (:...targetStatuses)', { targetStatuses });
     }
 
     const allocStats = await allocQb
@@ -216,14 +236,14 @@ export class PerformanceRepository {
       .andWhere('tp.status != :completedStatus', { completedStatus: TopicProgressStatus.COMPLETED })
       .andWhere('tp.deadline IS NOT NULL AND tp.deadline < NOW()');
 
-    if (targetBatchId) {
-      tpQb.andWhere('alloc.batch_id = :batchId', { batchId: targetBatchId });
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      tpQb.andWhere('alloc.batch_id IN (:...targetBatchIds)', { targetBatchIds });
     }
     if (resolvedMenteeIds && resolvedMenteeIds.length > 0) {
       tpQb.andWhere('alloc.user_id IN (:...menteeIds)', { menteeIds: resolvedMenteeIds });
     }
-    if (filter.courseId) {
-      tpQb.andWhere('alloc.course_id = :courseId', { courseId: filter.courseId });
+    if (targetCourseIds && targetCourseIds.length > 0) {
+      tpQb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
     }
 
     const overdueTopicsCount = await tpQb.getCount();
@@ -264,29 +284,36 @@ export class PerformanceRepository {
       return { mentees: [], total: 0 };
     }
 
-    const targetBatchId = filter.batchId ?? scope.scopedBatchId;
+    const targetBatchIds =
+      toArray(filter.batchIds ?? filter.batchId) ??
+      (scope.scopedBatchId ? [scope.scopedBatchId] : undefined);
+    const targetCourseIds = toArray(filter.courseIds ?? filter.courseId);
+    const targetStatuses = toArray(filter.statuses ?? filter.status);
 
     const qb = this.userRepo
       .createQueryBuilder('u')
       .leftJoin(CourseAllocation, 'alloc', 'alloc.user_id = u.id AND alloc.deleted_at IS NULL')
       .leftJoin(Batch, 'b', 'b.id = alloc.batch_id')
       .where('u.role = :menteeRole', { menteeRole: UserRole.MENTEE })
-      .andWhere('u.deleted_at IS NULL');
+      .andWhere('u.deleted_at IS NULL')
+      .andWhere(
+        '(alloc.id IS NOT NULL OR EXISTS (SELECT 1 FROM batch_members bm WHERE bm.user_id = u.id AND bm.deleted_at IS NULL) OR EXISTS (SELECT 1 FROM submissions sub WHERE sub.mentee_id = u.id AND sub.deleted_at IS NULL))',
+      );
 
-    if (targetBatchId) {
-      qb.andWhere('alloc.batch_id = :batchId', { batchId: targetBatchId });
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      qb.andWhere('alloc.batch_id IN (:...targetBatchIds)', { targetBatchIds });
     }
 
     if (resolvedMenteeIds && resolvedMenteeIds.length > 0) {
       qb.andWhere('u.id IN (:...menteeIds)', { menteeIds: resolvedMenteeIds });
     }
 
-    if (filter.courseId) {
-      qb.andWhere('alloc.course_id = :courseId', { courseId: filter.courseId });
+    if (targetCourseIds && targetCourseIds.length > 0) {
+      qb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
     }
 
-    if (filter.status) {
-      qb.andWhere('alloc.status = :status', { status: filter.status });
+    if (targetStatuses && targetStatuses.length > 0) {
+      qb.andWhere('alloc.status IN (:...targetStatuses)', { targetStatuses });
     }
 
     if (filter.search) {
@@ -399,13 +426,16 @@ export class PerformanceRepository {
         endDate: normalizeEndDate(filter.endDate),
       });
     }
-    if (filter.courseId) {
-      subAggQb.andWhere('alloc.course_id = :courseId', { courseId: filter.courseId });
+    if (targetCourseIds && targetCourseIds.length > 0) {
+      subAggQb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
     }
-    if (targetBatchId) {
-      subAggQb.andWhere('(sub.batch_id = :batchId OR alloc.batch_id = :batchId)', {
-        batchId: targetBatchId,
-      });
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      subAggQb.andWhere(
+        '(sub.batch_id IN (:...targetBatchIds) OR alloc.batch_id IN (:...targetBatchIds))',
+        {
+          targetBatchIds,
+        },
+      );
     }
 
     subAggQb
@@ -428,11 +458,11 @@ export class PerformanceRepository {
         openStatuses: [CourseAllocationStatus.ASSIGNED, CourseAllocationStatus.IN_PROGRESS],
       });
 
-    if (targetBatchId) {
-      overdueAllocQb.andWhere('alloc.batch_id = :batchId', { batchId: targetBatchId });
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      overdueAllocQb.andWhere('alloc.batch_id IN (:...targetBatchIds)', { targetBatchIds });
     }
-    if (filter.courseId) {
-      overdueAllocQb.andWhere('alloc.course_id = :courseId', { courseId: filter.courseId });
+    if (targetCourseIds && targetCourseIds.length > 0) {
+      overdueAllocQb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
     }
 
     overdueAllocQb
@@ -457,13 +487,16 @@ export class PerformanceRepository {
         endDate: normalizeEndDate(filter.endDate),
       });
     }
-    if (filter.courseId) {
-      latestSubsQb.andWhere('alloc.course_id = :courseId', { courseId: filter.courseId });
+    if (targetCourseIds && targetCourseIds.length > 0) {
+      latestSubsQb.andWhere('alloc.course_id IN (:...targetCourseIds)', { targetCourseIds });
     }
-    if (targetBatchId) {
-      latestSubsQb.andWhere('(sub.batch_id = :batchId OR alloc.batch_id = :batchId)', {
-        batchId: targetBatchId,
-      });
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      latestSubsQb.andWhere(
+        '(sub.batch_id IN (:...targetBatchIds) OR alloc.batch_id IN (:...targetBatchIds))',
+        {
+          targetBatchIds,
+        },
+      );
     }
 
     latestSubsQb

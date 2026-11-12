@@ -39,48 +39,53 @@ export class PerformancePolicy {
    */
   async resolvePerformanceScope(
     actor: AuthenticatedUser,
-    requestedBatchId?: string,
+    requestedBatchId?: string | string[],
   ): Promise<PerformanceScopeFilter> {
     const role = actor.role as UserRole;
+    const requestedBatchIds = Array.isArray(requestedBatchId)
+      ? requestedBatchId
+      : requestedBatchId
+        ? requestedBatchId
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
 
     if (role === UserRole.SUPER_ADMIN) {
       return {
         isSuperAdmin: true,
-        scopedBatchId: requestedBatchId,
+        scopedBatchId: requestedBatchIds[0],
       };
     }
 
     if (role === UserRole.MENTOR) {
-      if (requestedBatchId) {
-        // Verify mentor is a member of the requested batch (active or historical)
-        let membership = await this.batchRepo.findActiveMemberInBatch(requestedBatchId, actor.id);
-        if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
-          membership = await this.batchRepo.findMemberInBatch(requestedBatchId, actor.id);
-        }
+      if (requestedBatchIds.length > 0) {
+        const allowedMenteeIds: string[] = [];
+        for (const bId of requestedBatchIds) {
+          let membership = await this.batchRepo.findActiveMemberInBatch(bId, actor.id);
+          if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
+            membership = await this.batchRepo.findMemberInBatch(bId, actor.id);
+          }
 
-        if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
-          throw new ForbiddenError(
-            'Access denied: You are not an active mentor in the specified batch',
-          );
-        }
+          if (!membership || membership.memberRole !== BatchMemberRole.MENTOR) {
+            throw new ForbiddenError(
+              'Access denied: You are not an active mentor in the specified batch',
+            );
+          }
 
-        // Find mentees mapped to this mentor in this specific batch (fallback to historical if archived)
-        let mappings = await this.mentorMenteeRepo.findActiveMappingsForMentor(
-          actor.id,
-          requestedBatchId,
-        );
-        if (mappings.length === 0) {
-          const allBatchMappings =
-            await this.mentorMenteeRepo.findAllMappingsByBatch(requestedBatchId);
-          mappings = allBatchMappings.filter((m) => m.mentorId === actor.id);
+          let mappings = await this.mentorMenteeRepo.findActiveMappingsForMentor(actor.id, bId);
+          if (mappings.length === 0) {
+            const allBatchMappings = await this.mentorMenteeRepo.findAllMappingsByBatch(bId);
+            mappings = allBatchMappings.filter((m) => m.mentorId === actor.id);
+          }
+          allowedMenteeIds.push(...mappings.map((m) => m.menteeId));
         }
-        const mappedMenteeIds = mappings.map((m) => m.menteeId);
 
         return {
           isSuperAdmin: false,
           mentorId: actor.id,
-          scopedBatchId: requestedBatchId,
-          allowedMenteeIds: mappedMenteeIds,
+          scopedBatchId: requestedBatchIds[0],
+          allowedMenteeIds: [...new Set(allowedMenteeIds)],
         };
       }
 
@@ -91,7 +96,7 @@ export class PerformancePolicy {
       return {
         isSuperAdmin: false,
         mentorId: actor.id,
-        allowedMenteeIds: mappedMenteeIds,
+        allowedMenteeIds: [...new Set(mappedMenteeIds)],
       };
     }
 
