@@ -240,22 +240,48 @@ export class AllocationsRepository {
 
     const now = new Date();
 
-    if (query.status) {
-      if (query.status === 'OVERDUE') {
-        qb.andWhere(
-          'allocation.dueDate < :now AND allocation.status NOT IN (:...terminalStatuses)',
-          {
-            now,
-            terminalStatuses: [
-              CourseAllocationStatus.COMPLETED,
-              CourseAllocationStatus.REVOKED,
-              CourseAllocationStatus.CLOSED_ROLE_CHANGE,
-              CourseAllocationStatus.CLOSED_BATCH_CHANGE,
-            ],
-          },
+    const statusesToFilter =
+      query.statuses && query.statuses.length > 0
+        ? query.statuses
+        : query.status
+          ? [query.status]
+          : undefined;
+
+    if (statusesToFilter && statusesToFilter.length > 0) {
+      const isOverdueSelected = statusesToFilter.includes('OVERDUE');
+      const regularStatuses = statusesToFilter.filter(
+        (s): s is CourseAllocationStatus => s !== 'OVERDUE',
+      );
+
+      const statusClauses: string[] = [];
+
+      if (isOverdueSelected) {
+        statusClauses.push(
+          '(allocation.dueDate < :now AND allocation.status NOT IN (:...terminalStatuses))',
         );
-      } else {
-        qb.andWhere('allocation.status = :status', { status: query.status });
+      }
+
+      if (regularStatuses.length > 0) {
+        if (isOverdueSelected) {
+          statusClauses.push('allocation.status IN (:...regularStatuses)');
+        } else {
+          statusClauses.push(
+            '(allocation.status IN (:...regularStatuses) AND (allocation.dueDate >= :now OR allocation.status IN (:...terminalStatuses)))',
+          );
+        }
+      }
+
+      if (statusClauses.length > 0) {
+        qb.andWhere(`(${statusClauses.join(' OR ')})`, {
+          now,
+          terminalStatuses: [
+            CourseAllocationStatus.COMPLETED,
+            CourseAllocationStatus.REVOKED,
+            CourseAllocationStatus.CLOSED_ROLE_CHANGE,
+            CourseAllocationStatus.CLOSED_BATCH_CHANGE,
+          ],
+          regularStatuses,
+        });
       }
     }
 
@@ -268,10 +294,74 @@ export class AllocationsRepository {
     }
 
     if (query.search) {
-      qb.andWhere(
-        '(course.title ILIKE :search OR user.name ILIKE :search OR user.email ILIKE :search OR batch.name ILIKE :search)',
-        { search: `%${query.search}%` },
-      );
+      const rawSearch = query.search.trim();
+      const searchPattern = `%${rawSearch}%`;
+      const sLower = rawSearch.toLowerCase();
+      const sNorm = sLower.replace(/[-_]/g, ' ').trim();
+
+      const searchClauses: string[] = [
+        'course.title ILIKE :search',
+        'batch.name ILIKE :search',
+        'batch.code ILIKE :search',
+      ];
+
+      // Only search user name/email when the query is NOT already scoped to a specific mentee/user
+      if (!query.menteeId && !enforcedUserId) {
+        searchClauses.push('user.name ILIKE :search');
+        if (!['com', 'org', 'net', 'io', 'co', 'in'].includes(sLower) || rawSearch.includes('@')) {
+          searchClauses.push('user.email ILIKE :search');
+        }
+      }
+
+      const searchParams: Record<string, unknown> = {
+        search: searchPattern,
+        searchNow: now,
+      };
+
+      // Smart status matching based on exact recognized status keywords (prevents prefix collision)
+      const statusKeywordMap: Partial<Record<string, CourseAllocationStatus>> = {
+        completed: CourseAllocationStatus.COMPLETED,
+        complete: CourseAllocationStatus.COMPLETED,
+        done: CourseAllocationStatus.COMPLETED,
+        finished: CourseAllocationStatus.COMPLETED,
+        assigned: CourseAllocationStatus.ASSIGNED,
+        assign: CourseAllocationStatus.ASSIGNED,
+        'in progress': CourseAllocationStatus.IN_PROGRESS,
+        'in-progress': CourseAllocationStatus.IN_PROGRESS,
+        in_progress: CourseAllocationStatus.IN_PROGRESS,
+        progress: CourseAllocationStatus.IN_PROGRESS,
+        active: CourseAllocationStatus.IN_PROGRESS,
+        ongoing: CourseAllocationStatus.IN_PROGRESS,
+      };
+
+      const matchedStatus = statusKeywordMap[sNorm];
+      if (matchedStatus) {
+        searchParams.matchedStatus = matchedStatus;
+        if (
+          matchedStatus === CourseAllocationStatus.ASSIGNED ||
+          matchedStatus === CourseAllocationStatus.IN_PROGRESS
+        ) {
+          searchClauses.push(
+            '(allocation.status = :matchedStatus AND allocation.dueDate >= :searchNow)',
+          );
+        } else {
+          searchClauses.push('allocation.status = :matchedStatus');
+        }
+      }
+
+      if (['overdue', 'late', 'expired'].includes(sNorm)) {
+        searchParams.searchTerminalStatuses = [
+          CourseAllocationStatus.COMPLETED,
+          CourseAllocationStatus.REVOKED,
+          CourseAllocationStatus.CLOSED_ROLE_CHANGE,
+          CourseAllocationStatus.CLOSED_BATCH_CHANGE,
+        ];
+        searchClauses.push(
+          '(allocation.dueDate < :searchNow AND allocation.status NOT IN (:...searchTerminalStatuses))',
+        );
+      }
+
+      qb.andWhere(`(${searchClauses.join(' OR ')})`, searchParams);
     }
 
     const sortColumns: Record<string, string> = {
@@ -279,7 +369,11 @@ export class AllocationsRepository {
       mentee: 'LOWER(user.name)',
       batch: 'LOWER(batch.name)',
       startDate: 'allocation.startDate',
+      started: 'allocation.startDate',
       dueDate: 'allocation.dueDate',
+      due: 'allocation.dueDate',
+      progress: 'allocation.progressPercent',
+      status: 'allocation.status',
       createdAt: 'allocation.createdAt',
     };
     const sortBy = query.sortBy ?? 'createdAt';

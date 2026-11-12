@@ -62,6 +62,29 @@ export const createAllocationsSchema = z.object({
     ),
 });
 
+export const allocationStatusFilterSchema = z.enum([
+  CourseAllocationStatus.ASSIGNED,
+  CourseAllocationStatus.IN_PROGRESS,
+  CourseAllocationStatus.COMPLETED,
+  CourseAllocationStatus.REVOKED,
+  CourseAllocationStatus.CLOSED_ROLE_CHANGE,
+  CourseAllocationStatus.CLOSED_BATCH_CHANGE,
+  'OVERDUE',
+]);
+
+const commaSeparatedStatusesSchema = z
+  .union([
+    z.string().transform((val) =>
+      val
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+    z.array(z.string()),
+  ])
+  .pipe(z.array(allocationStatusFilterSchema))
+  .optional();
+
 export const listAllocationsQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
@@ -69,22 +92,24 @@ export const listAllocationsQuerySchema = z.object({
     courseId: z.string().uuid().optional(),
     batchId: z.string().uuid().optional(),
     menteeId: z.string().uuid().optional(),
-    status: z
-      .enum([
-        CourseAllocationStatus.ASSIGNED,
-        CourseAllocationStatus.IN_PROGRESS,
-        CourseAllocationStatus.COMPLETED,
-        CourseAllocationStatus.REVOKED,
-        CourseAllocationStatus.CLOSED_ROLE_CHANGE,
-        CourseAllocationStatus.CLOSED_BATCH_CHANGE,
-        'OVERDUE',
-      ])
-      .optional(),
+    status: allocationStatusFilterSchema.optional(),
+    statuses: commaSeparatedStatusesSchema,
     dueDateFrom: z.string().optional(),
     dueDateTo: z.string().optional(),
     search: z.string().trim().max(100).optional(),
     sortBy: z
-      .enum(['course', 'batch', 'mentee', 'startDate', 'dueDate', 'createdAt'])
+      .enum([
+        'course',
+        'batch',
+        'mentee',
+        'startDate',
+        'started',
+        'dueDate',
+        'due',
+        'progress',
+        'status',
+        'createdAt',
+      ])
       .default('createdAt'),
     sortOrder: z.enum(['asc', 'desc']).default('desc'),
   }),
