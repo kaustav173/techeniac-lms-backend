@@ -122,6 +122,7 @@ export const listAllocationsQuerySchema = z.object({
         'dueDate',
         'due',
         'progress',
+        'duration',
         'status',
         'createdAt',
       ])

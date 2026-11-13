@@ -387,6 +387,7 @@ export class AllocationsRepository {
       dueDate: 'allocation.dueDate',
       due: 'allocation.dueDate',
       progress: 'allocation.progressPercent',
+      duration: 'COALESCE(allocation.estimatedMinutes, course.estimatedMinutes, 0)',
       status: 'allocation.status',
       createdAt: 'allocation.createdAt',
     };
