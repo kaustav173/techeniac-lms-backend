@@ -100,6 +100,12 @@ export class CoursesService {
     },
     user: AuthenticatedUser,
   ): Promise<Course> {
+    const normalizedTitle = data.title.trim();
+    const existing = await coursesRepository.findCourseByTitle(normalizedTitle);
+    if (existing) {
+      throw new ValidationError(`A course with the title "${normalizedTitle}" already exists`);
+    }
+
     return await coursesRepository.createCourse({
       ...data,
       createdBy: user.id,
@@ -164,6 +170,14 @@ export class CoursesService {
     const course = await this.getCourseById(id, true);
     this.assertCanEdit(course, user);
     this.assertNotStale(course.updatedAt, data.expectedUpdatedAt);
+
+    if (data.title !== undefined) {
+      const normalizedTitle = data.title.trim();
+      const existing = await coursesRepository.findCourseByTitle(normalizedTitle);
+      if (existing && existing.id !== id) {
+        throw new ValidationError(`A course with the title "${normalizedTitle}" already exists`);
+      }
+    }
 
     if (data.estimatedMinutes !== undefined && data.estimatedMinutes !== null) {
       const topicsSum = sumMinutes(course.topics);
@@ -291,6 +305,27 @@ export class CoursesService {
     const course = await this.getCourseById(courseId, true);
     this.assertCanEdit(course, user);
 
+    const normalizedTitle = data.title.trim().toLowerCase();
+    const duplicateTopic = course.topics?.find(
+      (t) => t.title.trim().toLowerCase() === normalizedTitle,
+    );
+    if (duplicateTopic) {
+      throw new ValidationError(
+        `A topic with the title "${data.title.trim()}" already exists in this course`,
+      );
+    }
+
+    for (const t of course.topics ?? []) {
+      const duplicateSubtopic = t.subtopics?.find(
+        (s) => s.title.trim().toLowerCase() === normalizedTitle,
+      );
+      if (duplicateSubtopic) {
+        throw new ValidationError(
+          `A topic cannot share the same title "${data.title.trim()}" with an existing subtopic in this course`,
+        );
+      }
+    }
+
     if (data.estimatedMinutes !== undefined && data.estimatedMinutes !== null) {
       const otherTopicsSum = sumMinutes(course.topics);
       assertWithinBudget({
@@ -363,6 +398,29 @@ export class CoursesService {
         itemLabel: 'Topic',
         childLabel: 'subtopics',
       });
+    }
+
+    if (data.title !== undefined) {
+      const normalizedTitle = data.title.trim().toLowerCase();
+      const duplicateTopic = course.topics?.find(
+        (t) => t.id !== id && t.title.trim().toLowerCase() === normalizedTitle,
+      );
+      if (duplicateTopic) {
+        throw new ValidationError(
+          `A topic with the title "${data.title.trim()}" already exists in this course`,
+        );
+      }
+
+      for (const t of course.topics ?? []) {
+        const duplicateSubtopic = t.subtopics?.find(
+          (s) => s.title.trim().toLowerCase() === normalizedTitle,
+        );
+        if (duplicateSubtopic) {
+          throw new ValidationError(
+            `A topic cannot share the same title "${data.title.trim()}" with an existing subtopic in this course`,
+          );
+        }
+      }
     }
 
     const updatePayload: Partial<Topic> = { updatedBy: user.id };
@@ -469,8 +527,27 @@ export class CoursesService {
     if (!topic) {
       throw new NotFoundError('Topic not found');
     }
-    const course = await this.getCourseById(topic.courseId);
+    const course = await this.getCourseById(topic.courseId, true);
     this.assertCanEdit(course, user);
+
+    const normalizedTitle = data.title.trim().toLowerCase();
+    const duplicateSibling = topic.subtopics?.find(
+      (s) => s.title.trim().toLowerCase() === normalizedTitle,
+    );
+    if (duplicateSibling) {
+      throw new ValidationError(
+        `A subtopic with the title "${data.title.trim()}" already exists in this topic`,
+      );
+    }
+
+    const duplicateTopic = course.topics?.find(
+      (t) => t.title.trim().toLowerCase() === normalizedTitle,
+    );
+    if (duplicateTopic) {
+      throw new ValidationError(
+        `A subtopic cannot share the same title "${data.title.trim()}" with a topic in this course`,
+      );
+    }
 
     if (data.estimatedMinutes !== undefined && data.estimatedMinutes !== null) {
       const otherSubtopicsSum = sumMinutes(topic.subtopics);
@@ -519,9 +596,30 @@ export class CoursesService {
     if (!topic) {
       throw new NotFoundError('Topic not found');
     }
-    const course = await this.getCourseById(topic.courseId);
+    const course = await this.getCourseById(topic.courseId, true);
     this.assertCanEdit(course, user);
     this.assertNotStale(subtopic.updatedAt, data.expectedUpdatedAt);
+
+    if (data.title !== undefined) {
+      const normalizedTitle = data.title.trim().toLowerCase();
+      const duplicateSibling = topic.subtopics?.find(
+        (s) => s.id !== id && s.title.trim().toLowerCase() === normalizedTitle,
+      );
+      if (duplicateSibling) {
+        throw new ValidationError(
+          `A subtopic with the title "${data.title.trim()}" already exists in this topic`,
+        );
+      }
+
+      const duplicateTopic = course.topics?.find(
+        (t) => t.title.trim().toLowerCase() === normalizedTitle,
+      );
+      if (duplicateTopic) {
+        throw new ValidationError(
+          `A subtopic cannot share the same title "${data.title.trim()}" with a topic in this course`,
+        );
+      }
+    }
 
     if (data.estimatedMinutes !== undefined && data.estimatedMinutes !== null) {
       const otherSubtopicsSum = sumMinutes(topic.subtopics?.filter((s) => s.id !== id));
@@ -644,8 +742,34 @@ export class CoursesService {
     },
     user: AuthenticatedUser,
   ): Promise<Assignment> {
-    const course = await this.getCourseById(courseId);
+    const course = await this.getCourseById(courseId, true);
     this.assertCanEdit(course, user);
+
+    const normalizedTitle = data.title.trim().toLowerCase();
+    if (data.scope === AssignmentScope.COURSE) {
+      const duplicateCourseAssign = (course.courseAssignments || course.assignments)?.find(
+        (a) => a.title.trim().toLowerCase() === normalizedTitle,
+      );
+      if (duplicateCourseAssign) {
+        throw new ValidationError(
+          `A course assignment with the title "${data.title.trim()}" already exists in this course`,
+        );
+      }
+    } else if (data.scope === AssignmentScope.TOPIC && data.topicId) {
+      const topic = await coursesRepository.findTopicById(data.topicId);
+      if (!topic || topic.courseId !== courseId) {
+        throw new ValidationError('Specified topic does not belong to this course');
+      }
+
+      const duplicateTopicAssign = topic.assignments?.find(
+        (a) => a.title.trim().toLowerCase() === normalizedTitle,
+      );
+      if (duplicateTopicAssign) {
+        throw new ValidationError(
+          `A task with the title "${data.title.trim()}" already exists in this topic`,
+        );
+      }
+    }
 
     if (data.scope === AssignmentScope.TOPIC && data.topicId) {
       const topic = await coursesRepository.findTopicById(data.topicId);
@@ -698,9 +822,33 @@ export class CoursesService {
     if (!assignment) {
       throw new NotFoundError('Assignment not found');
     }
-    const course = await this.getCourseById(assignment.courseId);
+    const course = await this.getCourseById(assignment.courseId, true);
     this.assertCanEdit(course, user);
     this.assertNotStale(assignment.updatedAt, data.expectedUpdatedAt);
+
+    if (data.title !== undefined) {
+      const normalizedTitle = data.title.trim().toLowerCase();
+      if (assignment.scope === AssignmentScope.COURSE) {
+        const duplicateCourseAssign = (course.courseAssignments || course.assignments)?.find(
+          (a) => a.id !== id && a.title.trim().toLowerCase() === normalizedTitle,
+        );
+        if (duplicateCourseAssign) {
+          throw new ValidationError(
+            `A course assignment with the title "${data.title.trim()}" already exists in this course`,
+          );
+        }
+      } else if (assignment.scope === AssignmentScope.TOPIC && assignment.topicId) {
+        const topic = await coursesRepository.findTopicById(assignment.topicId);
+        const duplicateTopicAssign = topic?.assignments?.find(
+          (a) => a.id !== id && a.title.trim().toLowerCase() === normalizedTitle,
+        );
+        if (duplicateTopicAssign) {
+          throw new ValidationError(
+            `A task with the title "${data.title.trim()}" already exists in this topic`,
+          );
+        }
+      }
+    }
 
     const nextMaxMarks = Number(data.maxMarks !== undefined ? data.maxMarks : assignment.maxMarks);
     const nextPassMarks = Number(

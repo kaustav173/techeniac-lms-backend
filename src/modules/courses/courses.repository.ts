@@ -34,6 +34,14 @@ export class CoursesRepository {
     return await this.courseRepo.save(course);
   }
 
+  async findCourseByTitle(title: string): Promise<Course | null> {
+    return await this.courseRepo
+      .createQueryBuilder('course')
+      .where('LOWER(TRIM(course.title)) = LOWER(:title)', { title: title.trim() })
+      .andWhere('course.deletedAt IS NULL')
+      .getOne();
+  }
+
   async findCourseById(id: string, includeFullOutline = false): Promise<Course | null> {
     const course = await this.courseRepo
       .createQueryBuilder('course')
@@ -263,8 +271,21 @@ export class CoursesRepository {
 
       // 1. Create inactive course copy (FR-6.7, CRS-21)
       const courseRepo = manager.getRepository(Course);
+      let candidateTitle = `${source.title} (Copy)`.slice(0, 150);
+      let copyIndex = 2;
+      while (
+        await courseRepo
+          .createQueryBuilder('course')
+          .where('LOWER(TRIM(course.title)) = LOWER(:title)', { title: candidateTitle.trim() })
+          .andWhere('course.deletedAt IS NULL')
+          .getOne()
+      ) {
+        candidateTitle = `${source.title} (Copy ${copyIndex})`.slice(0, 150);
+        copyIndex++;
+      }
+
       const clonedCourse = courseRepo.create({
-        title: `${source.title} (Copy)`.slice(0, 150),
+        title: candidateTitle,
         description: source.description,
         estimatedMinutes: source.estimatedMinutes,
         isActive: false,
