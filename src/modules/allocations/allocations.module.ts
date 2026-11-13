@@ -1,4 +1,5 @@
 import { eventBus } from '../../core/lifecycle';
+import { logger } from '../../core/logging';
 import { allocationsService } from './allocations.service';
 
 let listenersRegistered = false;
@@ -18,11 +19,15 @@ export function registerAllocationLifecycleListeners(): void {
   });
 
   eventBus.onEvent('batch.memberTransferred', async (payload) => {
-    await allocationsService.handleBatchMemberTransferred({
-      batchId: payload.sourceBatchId,
-      newBatchId: payload.targetBatchId,
-      menteeId: payload.menteeId,
-      actorId: payload.actorId,
-    });
+    try {
+      await allocationsService.handleBatchMemberTransferred({
+        batchId: payload.sourceBatchId,
+        newBatchId: payload.targetBatchId,
+        menteeId: payload.menteeId,
+        actorId: payload.actorId,
+      });
+    } catch (err) {
+      logger.error({ err }, 'Error in batch.memberTransferred allocation handler');
+    }
   });
 }

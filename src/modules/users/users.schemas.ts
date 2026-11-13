@@ -5,13 +5,22 @@ import { UserRole } from './entities/user.entity';
 export const userRoleSchema = z.nativeEnum(UserRole);
 
 export const createUserSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(150),
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name cannot exceed 100 characters'),
   email: z.string().trim().email('Invalid email address').toLowerCase(),
   role: userRoleSchema,
 });
 
 export const updateUserSchema = z.object({
-  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(150).optional(),
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name cannot exceed 100 characters')
+    .optional(),
   email: z.string().trim().email('Invalid email address').toLowerCase().optional(),
 });
 

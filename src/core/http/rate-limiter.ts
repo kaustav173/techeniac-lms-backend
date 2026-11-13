@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { StatusCodes } from 'http-status-codes';
 
+import { env } from '../config';
+
 const rateLimitHandler = (_req: Request, res: Response) => {
   res.status(StatusCodes.TOO_MANY_REQUESTS).json({
     error: {
@@ -77,12 +79,13 @@ export const refreshRateLimiter = rateLimit({
 });
 
 /**
- * User invite creation & resend: 20 requests / 15 min per IP.
+ * User invite creation & resend: 20 requests / 15 min per IP in production.
+ * Configurable via RATE_LIMIT_INVITE or relaxed in non-production environments to allow batch seeding/testing.
  * Prevents SMTP quota exhaustion and email-bombing while allowing batch admin invites.
  */
 export const inviteRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: env.RATE_LIMIT_INVITE ?? (env.NODE_ENV === 'production' ? 20 : 200),
   standardHeaders: true,
   legacyHeaders: false,
   handler: rateLimitHandler,
