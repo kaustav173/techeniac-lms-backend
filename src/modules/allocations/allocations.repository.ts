@@ -226,12 +226,26 @@ export class AllocationsRepository {
       qb.andWhere('allocation.batchId IN (:...allowedBatchIds)', { allowedBatchIds });
     }
 
-    if (query.courseId) {
-      qb.andWhere('allocation.courseId = :courseId', { courseId: query.courseId });
+    const coursesToFilter =
+      query.courseIds && query.courseIds.length > 0
+        ? query.courseIds
+        : query.courseId
+          ? [query.courseId]
+          : undefined;
+
+    if (coursesToFilter && coursesToFilter.length > 0) {
+      qb.andWhere('allocation.courseId IN (:...coursesToFilter)', { coursesToFilter });
     }
 
-    if (query.batchId) {
-      qb.andWhere('allocation.batchId = :batchId', { batchId: query.batchId });
+    const batchesToFilter =
+      query.batchIds && query.batchIds.length > 0
+        ? query.batchIds
+        : query.batchId
+          ? [query.batchId]
+          : undefined;
+
+    if (batchesToFilter && batchesToFilter.length > 0) {
+      qb.andWhere('allocation.batchId IN (:...batchesToFilter)', { batchesToFilter });
     }
 
     if (query.menteeId) {
