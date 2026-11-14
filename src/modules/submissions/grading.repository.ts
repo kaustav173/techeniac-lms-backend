@@ -191,7 +191,13 @@ export class GradingRepository {
 
     // Filter by status (default SUBMITTED / "Pending review" per FR-10.3)
     if (query.status && query.status !== 'ALL') {
-      qb.andWhere('sub.status = :statusFilter', { statusFilter: query.status });
+      if (Array.isArray(query.status)) {
+        if (query.status.length > 0) {
+          qb.andWhere('sub.status IN (:...statusFilter)', { statusFilter: query.status });
+        }
+      } else {
+        qb.andWhere('sub.status = :statusFilter', { statusFilter: query.status });
+      }
     }
 
     // Query Filters
@@ -281,7 +287,13 @@ export class GradingRepository {
     }
 
     if (query.status && query.status !== 'ALL') {
-      countQb.andWhere('sub.status = :statusFilter', { statusFilter: query.status });
+      if (Array.isArray(query.status)) {
+        if (query.status.length > 0) {
+          countQb.andWhere('sub.status IN (:...statusFilter)', { statusFilter: query.status });
+        }
+      } else {
+        countQb.andWhere('sub.status = :statusFilter', { statusFilter: query.status });
+      }
     }
     if (query.batchId) {
       countQb.andWhere('sub.batchId = :batchId', { batchId: query.batchId });

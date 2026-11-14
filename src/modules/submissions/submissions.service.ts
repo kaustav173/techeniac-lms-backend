@@ -156,8 +156,13 @@ export class SubmissionsService {
         derivedStatus = 'PENDING';
       }
 
-      if (query.status && query.status !== 'ALL' && derivedStatus !== query.status) {
-        continue;
+      if (query.status && query.status !== 'ALL') {
+        const matches = Array.isArray(query.status)
+          ? (query.status as unknown as string[]).includes(derivedStatus)
+          : derivedStatus === query.status;
+        if (!matches) {
+          continue;
+        }
       }
 
       items.push({

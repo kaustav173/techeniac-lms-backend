@@ -30,6 +30,17 @@ export const reassignMenteeSchema = z.object({
 export const mentorQuerySchema = z.object({
   query: z.object({
     batchId: z.string().uuid('Invalid batch ID').optional(),
+    batchIds: z
+      .union([
+        z.string().transform((val) =>
+          val
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+        z.array(z.string().uuid()),
+      ])
+      .optional(),
   }),
 });
 
