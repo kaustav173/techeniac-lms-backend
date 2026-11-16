@@ -317,6 +317,15 @@ export class CoursesRepository {
 
       // 1. Create inactive course copy (FR-6.7, CRS-21)
       const courseRepo = manager.getRepository(Course);
+
+      try {
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+          `clone_course_${sourceCourseId}`,
+        ]);
+      } catch {
+        // Ignore in test environments where advisory locks are not supported
+      }
+
       const MAX_TITLE_LEN = 150;
       const getCandidateTitle = (base: string, index: number): string => {
         const suffix = index === 1 ? ' (Copy)' : ` (Copy ${index})`;
