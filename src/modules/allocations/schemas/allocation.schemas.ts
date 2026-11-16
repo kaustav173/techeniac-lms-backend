@@ -85,12 +85,31 @@ const commaSeparatedStatusesSchema = z
   .pipe(z.array(allocationStatusFilterSchema))
   .optional();
 
+const commaSeparatedUuidsSchema = z
+  .union([
+    z.string().transform((val) =>
+      val
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+    z.array(z.string()),
+  ])
+  .pipe(
+    z
+      .array(z.string().uuid('Invalid UUID in list'))
+      .max(20, 'At most 20 values may be filtered at once'),
+  )
+  .optional();
+
 export const listAllocationsQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(10),
     courseId: z.string().uuid().optional(),
+    courseIds: commaSeparatedUuidsSchema,
     batchId: z.string().uuid().optional(),
+    batchIds: commaSeparatedUuidsSchema,
     menteeId: z.string().uuid().optional(),
     status: allocationStatusFilterSchema.optional(),
     statuses: commaSeparatedStatusesSchema,
@@ -107,6 +126,7 @@ export const listAllocationsQuerySchema = z.object({
         'dueDate',
         'due',
         'progress',
+        'duration',
         'status',
         'createdAt',
       ])

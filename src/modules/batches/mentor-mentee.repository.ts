@@ -89,7 +89,7 @@ export class MentorMenteeRepository {
 
   public async findActiveMappingsForMentor(
     mentorId: string,
-    batchId?: string,
+    batchIdOrIds?: string | string[],
     manager?: EntityManager,
   ): Promise<MentorMentee[]> {
     const query = this.getRepo(manager)
@@ -100,11 +100,30 @@ export class MentorMenteeRepository {
       .andWhere('mm.is_active = true')
       .andWhere('mm.deleted_at IS NULL');
 
-    if (batchId) {
-      query.andWhere('mm.batch_id = :batchId', { batchId });
+    if (Array.isArray(batchIdOrIds)) {
+      if (batchIdOrIds.length > 0) {
+        query.andWhere('mm.batch_id IN (:...batchIds)', { batchIds: batchIdOrIds });
+      }
+    } else if (batchIdOrIds) {
+      query.andWhere('mm.batch_id = :batchId', { batchId: batchIdOrIds });
     }
 
     return await query.orderBy('mm.start_date', 'ASC').getMany();
+  }
+
+  public async isMenteeMappedToMentor(
+    mentorId: string,
+    menteeId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const count = await this.getRepo(manager).count({
+      where: {
+        mentorId,
+        menteeId,
+        isActive: true,
+      },
+    });
+    return count > 0;
   }
 
   public async findActiveMappingForMentee(

@@ -726,7 +726,8 @@ export class AllocationsService {
     for (const courseId of uniqueCourseIds) {
       const courseAllocations = openBatchAllocations.filter((a) => a.courseId === courseId);
       const latestDueDate = courseAllocations.reduce((max, curr) => {
-        return curr.dueDate.getTime() > max.getTime() ? curr.dueDate : max;
+        const currDue = new Date(curr.dueDate);
+        return currDue.getTime() > max.getTime() ? currDue : max;
       }, new Date(0));
 
       if (latestDueDate.getTime() <= Date.now()) {
@@ -792,7 +793,8 @@ export class AllocationsService {
     for (const courseId of uniqueCourseIds) {
       const courseAllocations = openBatchAllocations.filter((a) => a.courseId === courseId);
       const latestDueDate = courseAllocations.reduce((max, curr) => {
-        return curr.dueDate.getTime() > max.getTime() ? curr.dueDate : max;
+        const currDue = new Date(curr.dueDate);
+        return currDue.getTime() > max.getTime() ? currDue : max;
       }, new Date(0));
 
       if (latestDueDate.getTime() <= Date.now()) {

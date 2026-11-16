@@ -826,15 +826,25 @@ export class BatchService {
     };
   }
 
-  public async getMenteesForMentor(mentorId: string, batchId?: string) {
-    if (batchId) {
+  public async getMenteesForMentor(mentorId: string, batchIdOrIds?: string | string[]) {
+    if (typeof batchIdOrIds === 'string') {
       await this.mentorScope.requireMentorScope(MentorScopeAction.MANAGE_ALLOCATION, {
         mentorId,
-        batchId,
+        batchId: batchIdOrIds,
       });
+    } else if (Array.isArray(batchIdOrIds)) {
+      for (const bId of batchIdOrIds) {
+        await this.mentorScope.requireMentorScope(MentorScopeAction.MANAGE_ALLOCATION, {
+          mentorId,
+          batchId: bId,
+        });
+      }
     }
 
-    const mappings = await this.mentorMenteeRepo.findActiveMappingsForMentor(mentorId, batchId);
+    const mappings = await this.mentorMenteeRepo.findActiveMappingsForMentor(
+      mentorId,
+      batchIdOrIds,
+    );
     return mappings.map((m) => ({
       id: m.id,
       menteeId: m.menteeId,

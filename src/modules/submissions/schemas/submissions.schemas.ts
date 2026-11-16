@@ -51,11 +51,26 @@ export const createSubmissionSchema = z.object({
   }),
 });
 
+const commaSeparatedAssignmentStatusesSchema = z
+  .union([
+    z.string().transform((val) =>
+      val
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+    z.array(z.string()),
+  ])
+  .pipe(z.array(z.enum(ASSIGNMENT_QUERY_STATUSES)))
+  .optional();
+
 export const listMyAssignmentsQuerySchema = z.object({
   query: z.object({
     courseId: z.string().uuid().optional(),
     topicId: z.string().uuid().optional(),
     status: z.enum(ASSIGNMENT_QUERY_STATUSES).optional().default('ALL'),
+    statuses: commaSeparatedAssignmentStatusesSchema,
+    search: z.string().trim().max(100).optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
   }),

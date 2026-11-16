@@ -1,6 +1,12 @@
-import { NotFoundError } from '../../core/errors';
+import type { AuthenticatedUser } from '../../core/auth';
+import { ForbiddenError, NotFoundError } from '../../core/errors';
 import type { CourseAllocation } from '../allocations';
-import type { BatchMember, MentorMentee } from '../batches';
+import {
+  type BatchMember,
+  MentorMentee,
+  MentorMenteeRepository,
+  mentorMenteeRepository,
+} from '../batches';
 import type { Submission } from '../submissions';
 import { SubmissionStatus } from '../submissions';
 import type { SafeUser, UserRoleHistory } from '../users';
@@ -133,12 +139,31 @@ export type User360TabResponse = {
 };
 
 export class User360Service {
-  constructor(private readonly repository: User360Repository = user360Repository) {}
+  constructor(
+    private readonly repository: User360Repository = user360Repository,
+    private readonly mentorMenteeRepo: MentorMenteeRepository = mentorMenteeRepository,
+  ) {}
+
+  public async assertMentorCanAccessMentee(
+    mentorId: string,
+    menteeId: string,
+    action: 'access' | 'export' = 'access',
+  ): Promise<void> {
+    const isMapped = await this.mentorMenteeRepo.isMenteeMappedToMentor(mentorId, menteeId);
+    if (!isMapped) {
+      throw new ForbiddenError(`Mentors can only ${action} 360 profiles of their assigned mentees`);
+    }
+  }
 
   public async getUser360(
     userId: string,
     query: User360QueryParams,
+    authUser?: AuthenticatedUser,
   ): Promise<User360Profile | User360TabResponse> {
+    if (authUser && (authUser.role as UserRole) === UserRole.MENTOR) {
+      await this.assertMentorCanAccessMentee(authUser.id, userId, 'access');
+    }
+
     const user = await this.repository.getUser(userId);
     if (!user) {
       throw new NotFoundError(`User with ID ${userId} not found`);
@@ -189,11 +214,23 @@ export class User360Service {
     return fullProfile;
   }
 
-  public async exportUser360Csv(userId: string, query: User360ExportParams): Promise<string> {
-    const profile = (await this.getUser360(userId, {
-      ...query,
-      tab: 'all',
-    })) as User360Profile;
+  public async exportUser360Csv(
+    userId: string,
+    query: User360ExportParams,
+    authUser?: AuthenticatedUser,
+  ): Promise<string> {
+    if (authUser && (authUser.role as UserRole) === UserRole.MENTOR) {
+      await this.assertMentorCanAccessMentee(authUser.id, userId, 'export');
+    }
+
+    const profile = (await this.getUser360(
+      userId,
+      {
+        ...query,
+        tab: 'all',
+      },
+      authUser,
+    )) as User360Profile;
 
     const lines: string[] = [];
 

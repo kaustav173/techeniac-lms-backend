@@ -10,6 +10,7 @@ import {
   ChangeBatchStatusInput,
   CreateBatchInput,
   MapMenteesInput,
+  MentorQueryParams,
   ReassignMenteeInput,
   TransferMenteeInput,
   UpdateBatchInput,
@@ -131,8 +132,9 @@ export class BatchController extends BaseController {
 
   public getMentorMentees = async (req: Request, res: Response): Promise<void> => {
     const user = this.getAuthUser(req);
-    const batchId = typeof req.query.batchId === 'string' ? req.query.batchId : undefined;
-    const mentees = await this.service.getMenteesForMentor(user.id, batchId);
+    const query = req.query as unknown as MentorQueryParams;
+    const batchIdOrIds = query.batchIds ?? query.batchId;
+    const mentees = await this.service.getMenteesForMentor(user.id, batchIdOrIds);
     this.sendSuccess(res, { mentees });
   };
 

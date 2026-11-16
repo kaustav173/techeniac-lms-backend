@@ -11,8 +11,21 @@ export const submissionIdParamSchema = z.object({
 export const submissionQueueQuerySchema = z.object({
   query: z.object({
     status: z
-      .nativeEnum(SubmissionStatus)
-      .or(z.literal('ALL'))
+      .union([
+        z.nativeEnum(SubmissionStatus),
+        z.literal('ALL'),
+        z.array(z.nativeEnum(SubmissionStatus)),
+        z
+          .string()
+          .transform((val) => {
+            if (val === 'ALL') return 'ALL' as const;
+            return val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+          })
+          .pipe(z.union([z.literal('ALL'), z.array(z.nativeEnum(SubmissionStatus))])),
+      ])
       .optional()
       .default(SubmissionStatus.SUBMITTED),
     batchId: z.string().uuid().optional(),

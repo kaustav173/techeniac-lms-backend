@@ -60,6 +60,7 @@ export const envSchema = z
     REDIS_HOST: z.string().default('127.0.0.1'),
     REDIS_PORT: z.coerce.number().int().positive().default(6379),
     REDIS_PASSWORD: z.string().optional(),
+    RATE_LIMIT_INVITE: z.coerce.number().int().positive().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.NODE_ENV === 'production') {
