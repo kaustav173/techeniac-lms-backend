@@ -30,8 +30,31 @@ export class CoursesRepository {
 
   // --- Course Operations ---
   async createCourse(data: Partial<Course>): Promise<Course> {
-    const course = this.courseRepo.create(data);
-    return await this.courseRepo.save(course);
+    return await AppDataSource.transaction(async (manager) => {
+      const courseRepo = manager.getRepository(Course);
+      if (data.title) {
+        const normalizedTitle = data.title.trim();
+        try {
+          await manager.query('SELECT pg_advisory_xact_lock(hashtext(LOWER(TRIM($1))))', [
+            normalizedTitle,
+          ]);
+        } catch {
+          // Ignore in test environments where advisory locks are not supported
+        }
+
+        const existing = await courseRepo
+          .createQueryBuilder('course')
+          .where('LOWER(TRIM(course.title)) = LOWER(:title)', { title: normalizedTitle })
+          .andWhere('course.deletedAt IS NULL')
+          .getOne();
+        if (existing) {
+          throw new ValidationError(`A course with the title "${normalizedTitle}" already exists`);
+        }
+      }
+
+      const course = courseRepo.create(data);
+      return await courseRepo.save(course);
+    });
   }
 
   async findCourseByTitle(title: string): Promise<Course | null> {
@@ -235,31 +258,54 @@ export class CoursesRepository {
     data: Partial<Course>,
     expectedUpdatedAt?: string,
   ): Promise<Course | null> {
-    const qb = this.courseRepo
-      .createQueryBuilder()
-      .update(Course)
-      .set({ ...data, updatedAt: () => 'now()' })
-      .where('id = :id', { id })
-      .andWhere('deletedAt IS NULL');
+    return await AppDataSource.transaction(async (manager) => {
+      const courseRepo = manager.getRepository(Course);
+      if (data.title) {
+        const normalizedTitle = data.title.trim();
+        try {
+          await manager.query('SELECT pg_advisory_xact_lock(hashtext(LOWER(TRIM($1))))', [
+            normalizedTitle,
+          ]);
+        } catch {
+          // Ignore in test environments where advisory locks are not supported
+        }
 
-    if (expectedUpdatedAt) {
-      qb.andWhere(
-        "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
-        { expectedUpdatedAt },
-      );
-    }
-
-    const res = await qb.execute();
-    if (res.affected === 0) {
-      const exists = await this.courseRepo.findOne({ where: { id } });
-      if (!exists) {
-        return null;
+        const existing = await courseRepo
+          .createQueryBuilder('course')
+          .where('LOWER(TRIM(course.title)) = LOWER(:title)', { title: normalizedTitle })
+          .andWhere('course.deletedAt IS NULL')
+          .getOne();
+        if (existing && existing.id !== id) {
+          throw new ValidationError(`A course with the title "${normalizedTitle}" already exists`);
+        }
       }
-      throw new ConflictError(
-        'This item was modified concurrently by another user. Please reload the latest changes.',
-      );
-    }
-    return await this.courseRepo.findOne({ where: { id } });
+
+      const qb = courseRepo
+        .createQueryBuilder()
+        .update(Course)
+        .set({ ...data, updatedAt: () => 'now()' })
+        .where('id = :id', { id })
+        .andWhere('deletedAt IS NULL');
+
+      if (expectedUpdatedAt) {
+        qb.andWhere(
+          "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
+          { expectedUpdatedAt },
+        );
+      }
+
+      const res = await qb.execute();
+      if (res.affected === 0) {
+        const exists = await courseRepo.findOne({ where: { id } });
+        if (!exists) {
+          return null;
+        }
+        throw new ConflictError(
+          'This item was modified concurrently by another user. Please reload the latest changes.',
+        );
+      }
+      return await courseRepo.findOne({ where: { id } });
+    });
   }
 
   async cloneCourse(sourceCourseId: string, newCreatorId: string): Promise<Course> {
@@ -271,8 +317,17 @@ export class CoursesRepository {
 
       // 1. Create inactive course copy (FR-6.7, CRS-21)
       const courseRepo = manager.getRepository(Course);
-      let candidateTitle = `${source.title} (Copy)`.slice(0, 150);
-      let copyIndex = 2;
+      const MAX_TITLE_LEN = 150;
+      const getCandidateTitle = (base: string, index: number): string => {
+        const suffix = index === 1 ? ' (Copy)' : ` (Copy ${index})`;
+        const maxBaseLen = MAX_TITLE_LEN - suffix.length;
+        const truncatedBase = base.length > maxBaseLen ? base.slice(0, maxBaseLen).trim() : base;
+        return `${truncatedBase}${suffix}`;
+      };
+
+      let copyIndex = 1;
+      let candidateTitle = getCandidateTitle(source.title, copyIndex);
+      let attempts = 0;
       while (
         await courseRepo
           .createQueryBuilder('course')
@@ -280,8 +335,12 @@ export class CoursesRepository {
           .andWhere('course.deletedAt IS NULL')
           .getOne()
       ) {
-        candidateTitle = `${source.title} (Copy ${copyIndex})`.slice(0, 150);
+        attempts++;
+        if (attempts >= 1000) {
+          throw new ConflictError('Unable to generate unique clone title after 1000 attempts');
+        }
         copyIndex++;
+        candidateTitle = getCandidateTitle(source.title, copyIndex);
       }
 
       const clonedCourse = courseRepo.create({
@@ -417,7 +476,7 @@ export class CoursesRepository {
   async createTopic(data: Partial<Topic>): Promise<Topic> {
     return await AppDataSource.transaction(async (manager) => {
       let displayOrder = data.displayOrder;
-      if (displayOrder === undefined && data.courseId) {
+      if (data.courseId) {
         await manager
           .getRepository(Course)
           .createQueryBuilder('course')
@@ -425,15 +484,48 @@ export class CoursesRepository {
           .where('course.id = :id', { id: data.courseId })
           .getOne();
 
-        const maxRow = await manager
-          .getRepository(Topic)
-          .createQueryBuilder('topic')
-          .select('COALESCE(MAX(topic.displayOrder), -1)', 'max')
-          .where('topic.courseId = :courseId', { courseId: data.courseId })
-          .andWhere('topic.deletedAt IS NULL')
-          .getRawOne<{ max?: string | number | null }>();
+        if (data.title) {
+          const normalizedTitle = data.title.trim().toLowerCase();
+          const existingTopic = await manager
+            .getRepository(Topic)
+            .createQueryBuilder('topic')
+            .where('topic.courseId = :courseId', { courseId: data.courseId })
+            .andWhere('LOWER(TRIM(topic.title)) = :title', { title: normalizedTitle })
+            .andWhere('topic.deletedAt IS NULL')
+            .getOne();
+          if (existingTopic) {
+            throw new ValidationError(
+              `A topic with the title "${data.title.trim()}" already exists in this course`,
+            );
+          }
 
-        displayOrder = Number(maxRow?.max ?? -1) + 1;
+          const existingSubtopic = await manager
+            .getRepository(Subtopic)
+            .createQueryBuilder('subtopic')
+            .innerJoin('subtopic.topic', 'topic')
+            .where('topic.courseId = :courseId', { courseId: data.courseId })
+            .andWhere('LOWER(TRIM(subtopic.title)) = :title', { title: normalizedTitle })
+            .andWhere('subtopic.deletedAt IS NULL')
+            .andWhere('topic.deletedAt IS NULL')
+            .getOne();
+          if (existingSubtopic) {
+            throw new ValidationError(
+              `A topic cannot share the same title "${data.title.trim()}" with an existing subtopic in this course`,
+            );
+          }
+        }
+
+        if (displayOrder === undefined) {
+          const maxRow = await manager
+            .getRepository(Topic)
+            .createQueryBuilder('topic')
+            .select('COALESCE(MAX(topic.displayOrder), -1)', 'max')
+            .where('topic.courseId = :courseId', { courseId: data.courseId })
+            .andWhere('topic.deletedAt IS NULL')
+            .getRawOne<{ max?: string | number | null }>();
+
+          displayOrder = Number(maxRow?.max ?? -1) + 1;
+        }
       }
 
       const topicRepo = manager.getRepository(Topic);
@@ -472,31 +564,77 @@ export class CoursesRepository {
     data: Partial<Topic>,
     expectedUpdatedAt?: string,
   ): Promise<Topic | null> {
-    const qb = this.topicRepo
-      .createQueryBuilder()
-      .update(Topic)
-      .set({ ...data, updatedAt: () => 'now()' })
-      .where('id = :id', { id })
-      .andWhere('deletedAt IS NULL');
-
-    if (expectedUpdatedAt) {
-      qb.andWhere(
-        "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
-        { expectedUpdatedAt },
-      );
-    }
-
-    const res = await qb.execute();
-    if (res.affected === 0) {
-      const exists = await this.topicRepo.findOne({ where: { id } });
-      if (!exists) {
+    return await AppDataSource.transaction(async (manager) => {
+      const topicRepo = manager.getRepository(Topic);
+      const existing = await topicRepo.findOne({ where: { id } });
+      if (!existing) {
         return null;
       }
-      throw new ConflictError(
-        'This item was modified concurrently by another user. Please reload the latest changes.',
-      );
-    }
-    return await this.topicRepo.findOne({ where: { id } });
+
+      if (data.title && existing.courseId) {
+        await manager
+          .getRepository(Course)
+          .createQueryBuilder('course')
+          .setLock('pessimistic_write')
+          .where('course.id = :id', { id: existing.courseId })
+          .getOne();
+
+        const normalizedTitle = data.title.trim().toLowerCase();
+        const duplicateTopic = await topicRepo
+          .createQueryBuilder('topic')
+          .where('topic.courseId = :courseId', { courseId: existing.courseId })
+          .andWhere('topic.id != :id', { id })
+          .andWhere('LOWER(TRIM(topic.title)) = :title', { title: normalizedTitle })
+          .andWhere('topic.deletedAt IS NULL')
+          .getOne();
+        if (duplicateTopic) {
+          throw new ValidationError(
+            `A topic with the title "${data.title.trim()}" already exists in this course`,
+          );
+        }
+
+        const duplicateSubtopic = await manager
+          .getRepository(Subtopic)
+          .createQueryBuilder('subtopic')
+          .innerJoin('subtopic.topic', 'topic')
+          .where('topic.courseId = :courseId', { courseId: existing.courseId })
+          .andWhere('LOWER(TRIM(subtopic.title)) = :title', { title: normalizedTitle })
+          .andWhere('subtopic.deletedAt IS NULL')
+          .andWhere('topic.deletedAt IS NULL')
+          .getOne();
+        if (duplicateSubtopic) {
+          throw new ValidationError(
+            `A topic cannot share the same title "${data.title.trim()}" with an existing subtopic in this course`,
+          );
+        }
+      }
+
+      const qb = topicRepo
+        .createQueryBuilder()
+        .update(Topic)
+        .set({ ...data, updatedAt: () => 'now()' })
+        .where('id = :id', { id })
+        .andWhere('deletedAt IS NULL');
+
+      if (expectedUpdatedAt) {
+        qb.andWhere(
+          "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
+          { expectedUpdatedAt },
+        );
+      }
+
+      const res = await qb.execute();
+      if (res.affected === 0) {
+        const check = await topicRepo.findOne({ where: { id } });
+        if (!check) {
+          return null;
+        }
+        throw new ConflictError(
+          'This item was modified concurrently by another user. Please reload the latest changes.',
+        );
+      }
+      return await topicRepo.findOne({ where: { id } });
+    });
   }
 
   async deleteTopic(id: string): Promise<boolean> {
@@ -542,23 +680,56 @@ export class CoursesRepository {
   async createSubtopic(data: Partial<Subtopic>): Promise<Subtopic> {
     return await AppDataSource.transaction(async (manager) => {
       let displayOrder = data.displayOrder;
-      if (displayOrder === undefined && data.topicId) {
-        await manager
+      if (data.topicId) {
+        const parentTopic = await manager
           .getRepository(Topic)
           .createQueryBuilder('topic')
           .setLock('pessimistic_write')
           .where('topic.id = :id', { id: data.topicId })
           .getOne();
 
-        const maxRow = await manager
-          .getRepository(Subtopic)
-          .createQueryBuilder('subtopic')
-          .select('COALESCE(MAX(subtopic.displayOrder), -1)', 'max')
-          .where('subtopic.topicId = :topicId', { topicId: data.topicId })
-          .andWhere('subtopic.deletedAt IS NULL')
-          .getRawOne<{ max?: string | number | null }>();
+        if (data.title) {
+          const normalizedTitle = data.title.trim().toLowerCase();
+          const subtopicRepo = manager.getRepository(Subtopic);
+          const duplicateSibling = await subtopicRepo
+            .createQueryBuilder('subtopic')
+            .where('subtopic.topicId = :topicId', { topicId: data.topicId })
+            .andWhere('LOWER(TRIM(subtopic.title)) = :title', { title: normalizedTitle })
+            .andWhere('subtopic.deletedAt IS NULL')
+            .getOne();
+          if (duplicateSibling) {
+            throw new ValidationError(
+              `A subtopic with the title "${data.title.trim()}" already exists in this topic`,
+            );
+          }
 
-        displayOrder = Number(maxRow?.max ?? -1) + 1;
+          if (parentTopic?.courseId) {
+            const duplicateTopic = await manager
+              .getRepository(Topic)
+              .createQueryBuilder('topic')
+              .where('topic.courseId = :courseId', { courseId: parentTopic.courseId })
+              .andWhere('LOWER(TRIM(topic.title)) = :title', { title: normalizedTitle })
+              .andWhere('topic.deletedAt IS NULL')
+              .getOne();
+            if (duplicateTopic) {
+              throw new ValidationError(
+                `A subtopic cannot share the same title "${data.title.trim()}" with a topic in this course`,
+              );
+            }
+          }
+        }
+
+        if (displayOrder === undefined) {
+          const maxRow = await manager
+            .getRepository(Subtopic)
+            .createQueryBuilder('subtopic')
+            .select('COALESCE(MAX(subtopic.displayOrder), -1)', 'max')
+            .where('subtopic.topicId = :topicId', { topicId: data.topicId })
+            .andWhere('subtopic.deletedAt IS NULL')
+            .getRawOne<{ max?: string | number | null }>();
+
+          displayOrder = Number(maxRow?.max ?? -1) + 1;
+        }
       }
 
       const subtopicRepo = manager.getRepository(Subtopic);
@@ -576,31 +747,77 @@ export class CoursesRepository {
     data: Partial<Subtopic>,
     expectedUpdatedAt?: string,
   ): Promise<Subtopic | null> {
-    const qb = this.subtopicRepo
-      .createQueryBuilder()
-      .update(Subtopic)
-      .set({ ...data, updatedAt: () => 'now()' })
-      .where('id = :id', { id })
-      .andWhere('deletedAt IS NULL');
-
-    if (expectedUpdatedAt) {
-      qb.andWhere(
-        "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
-        { expectedUpdatedAt },
-      );
-    }
-
-    const res = await qb.execute();
-    if (res.affected === 0) {
-      const exists = await this.subtopicRepo.findOne({ where: { id } });
-      if (!exists) {
+    return await AppDataSource.transaction(async (manager) => {
+      const subtopicRepo = manager.getRepository(Subtopic);
+      const existing = await subtopicRepo.findOne({ where: { id } });
+      if (!existing) {
         return null;
       }
-      throw new ConflictError(
-        'This item was modified concurrently by another user. Please reload the latest changes.',
-      );
-    }
-    return await this.subtopicRepo.findOne({ where: { id } });
+
+      if (data.title && existing.topicId) {
+        const parentTopic = await manager
+          .getRepository(Topic)
+          .createQueryBuilder('topic')
+          .setLock('pessimistic_write')
+          .where('topic.id = :id', { id: existing.topicId })
+          .getOne();
+
+        const normalizedTitle = data.title.trim().toLowerCase();
+        const duplicateSibling = await subtopicRepo
+          .createQueryBuilder('subtopic')
+          .where('subtopic.topicId = :topicId', { topicId: existing.topicId })
+          .andWhere('subtopic.id != :id', { id })
+          .andWhere('LOWER(TRIM(subtopic.title)) = :title', { title: normalizedTitle })
+          .andWhere('subtopic.deletedAt IS NULL')
+          .getOne();
+        if (duplicateSibling) {
+          throw new ValidationError(
+            `A subtopic with the title "${data.title.trim()}" already exists in this topic`,
+          );
+        }
+
+        if (parentTopic?.courseId) {
+          const duplicateTopic = await manager
+            .getRepository(Topic)
+            .createQueryBuilder('topic')
+            .where('topic.courseId = :courseId', { courseId: parentTopic.courseId })
+            .andWhere('LOWER(TRIM(topic.title)) = :title', { title: normalizedTitle })
+            .andWhere('topic.deletedAt IS NULL')
+            .getOne();
+          if (duplicateTopic) {
+            throw new ValidationError(
+              `A subtopic cannot share the same title "${data.title.trim()}" with a topic in this course`,
+            );
+          }
+        }
+      }
+
+      const qb = subtopicRepo
+        .createQueryBuilder()
+        .update(Subtopic)
+        .set({ ...data, updatedAt: () => 'now()' })
+        .where('id = :id', { id })
+        .andWhere('deletedAt IS NULL');
+
+      if (expectedUpdatedAt) {
+        qb.andWhere(
+          "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
+          { expectedUpdatedAt },
+        );
+      }
+
+      const res = await qb.execute();
+      if (res.affected === 0) {
+        const check = await subtopicRepo.findOne({ where: { id } });
+        if (!check) {
+          return null;
+        }
+        throw new ConflictError(
+          'This item was modified concurrently by another user. Please reload the latest changes.',
+        );
+      }
+      return await subtopicRepo.findOne({ where: { id } });
+    });
   }
 
   async deleteSubtopic(id: string): Promise<boolean> {
@@ -642,7 +859,7 @@ export class CoursesRepository {
   async createAssignment(data: Partial<Assignment>): Promise<Assignment> {
     return await AppDataSource.transaction(async (manager) => {
       let displayOrder = data.displayOrder;
-      if (displayOrder === undefined && data.courseId) {
+      if (data.courseId) {
         await manager
           .getRepository(Course)
           .createQueryBuilder('course')
@@ -650,22 +867,56 @@ export class CoursesRepository {
           .where('course.id = :id', { id: data.courseId })
           .getOne();
 
-        const qb = manager
-          .getRepository(Assignment)
-          .createQueryBuilder('assignment')
-          .select('COALESCE(MAX(assignment.displayOrder), -1)', 'max')
-          .where('assignment.courseId = :courseId', { courseId: data.courseId })
-          .andWhere('assignment.scope = :scope', { scope: data.scope })
-          .andWhere('assignment.deletedAt IS NULL');
-
-        if (data.scope === AssignmentScope.TOPIC && data.topicId) {
-          qb.andWhere('assignment.topicId = :topicId', { topicId: data.topicId });
-        } else {
-          qb.andWhere('assignment.topicId IS NULL');
+        if (data.title) {
+          const normalizedTitle = data.title.trim().toLowerCase();
+          const assignmentRepo = manager.getRepository(Assignment);
+          if (data.scope === AssignmentScope.COURSE) {
+            const duplicateCourseAssign = await assignmentRepo
+              .createQueryBuilder('assignment')
+              .where('assignment.courseId = :courseId', { courseId: data.courseId })
+              .andWhere('assignment.scope = :scope', { scope: AssignmentScope.COURSE })
+              .andWhere('LOWER(TRIM(assignment.title)) = :title', { title: normalizedTitle })
+              .andWhere('assignment.deletedAt IS NULL')
+              .getOne();
+            if (duplicateCourseAssign) {
+              throw new ValidationError(
+                `A course assignment with the title "${data.title.trim()}" already exists in this course`,
+              );
+            }
+          } else if (data.scope === AssignmentScope.TOPIC && data.topicId) {
+            const duplicateTopicAssign = await assignmentRepo
+              .createQueryBuilder('assignment')
+              .where('assignment.topicId = :topicId', { topicId: data.topicId })
+              .andWhere('assignment.scope = :scope', { scope: AssignmentScope.TOPIC })
+              .andWhere('LOWER(TRIM(assignment.title)) = :title', { title: normalizedTitle })
+              .andWhere('assignment.deletedAt IS NULL')
+              .getOne();
+            if (duplicateTopicAssign) {
+              throw new ValidationError(
+                `A task with the title "${data.title.trim()}" already exists in this topic`,
+              );
+            }
+          }
         }
 
-        const maxRow = await qb.getRawOne<{ max?: string | number | null }>();
-        displayOrder = Number(maxRow?.max ?? -1) + 1;
+        if (displayOrder === undefined) {
+          const qb = manager
+            .getRepository(Assignment)
+            .createQueryBuilder('assignment')
+            .select('COALESCE(MAX(assignment.displayOrder), -1)', 'max')
+            .where('assignment.courseId = :courseId', { courseId: data.courseId })
+            .andWhere('assignment.scope = :scope', { scope: data.scope })
+            .andWhere('assignment.deletedAt IS NULL');
+
+          if (data.scope === AssignmentScope.TOPIC && data.topicId) {
+            qb.andWhere('assignment.topicId = :topicId', { topicId: data.topicId });
+          } else {
+            qb.andWhere('assignment.topicId IS NULL');
+          }
+
+          const maxRow = await qb.getRawOne<{ max?: string | number | null }>();
+          displayOrder = Number(maxRow?.max ?? -1) + 1;
+        }
       }
 
       const assignmentRepo = manager.getRepository(Assignment);
@@ -683,31 +934,79 @@ export class CoursesRepository {
     data: Partial<Assignment>,
     expectedUpdatedAt?: string,
   ): Promise<Assignment | null> {
-    const qb = this.assignmentRepo
-      .createQueryBuilder()
-      .update(Assignment)
-      .set({ ...data, updatedAt: () => 'now()' })
-      .where('id = :id', { id })
-      .andWhere('deletedAt IS NULL');
-
-    if (expectedUpdatedAt) {
-      qb.andWhere(
-        "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
-        { expectedUpdatedAt },
-      );
-    }
-
-    const res = await qb.execute();
-    if (res.affected === 0) {
-      const exists = await this.assignmentRepo.findOne({ where: { id } });
-      if (!exists) {
+    return await AppDataSource.transaction(async (manager) => {
+      const assignmentRepo = manager.getRepository(Assignment);
+      const existing = await assignmentRepo.findOne({ where: { id } });
+      if (!existing) {
         return null;
       }
-      throw new ConflictError(
-        'This item was modified concurrently by another user. Please reload the latest changes.',
-      );
-    }
-    return await this.assignmentRepo.findOne({ where: { id } });
+
+      if (data.title && existing.courseId) {
+        await manager
+          .getRepository(Course)
+          .createQueryBuilder('course')
+          .setLock('pessimistic_write')
+          .where('course.id = :id', { id: existing.courseId })
+          .getOne();
+
+        const normalizedTitle = data.title.trim().toLowerCase();
+        if (existing.scope === AssignmentScope.COURSE) {
+          const duplicateCourseAssign = await assignmentRepo
+            .createQueryBuilder('assignment')
+            .where('assignment.courseId = :courseId', { courseId: existing.courseId })
+            .andWhere('assignment.scope = :scope', { scope: AssignmentScope.COURSE })
+            .andWhere('assignment.id != :id', { id })
+            .andWhere('LOWER(TRIM(assignment.title)) = :title', { title: normalizedTitle })
+            .andWhere('assignment.deletedAt IS NULL')
+            .getOne();
+          if (duplicateCourseAssign) {
+            throw new ValidationError(
+              `A course assignment with the title "${data.title.trim()}" already exists in this course`,
+            );
+          }
+        } else if (existing.scope === AssignmentScope.TOPIC && existing.topicId) {
+          const duplicateTopicAssign = await assignmentRepo
+            .createQueryBuilder('assignment')
+            .where('assignment.topicId = :topicId', { topicId: existing.topicId })
+            .andWhere('assignment.scope = :scope', { scope: AssignmentScope.TOPIC })
+            .andWhere('assignment.id != :id', { id })
+            .andWhere('LOWER(TRIM(assignment.title)) = :title', { title: normalizedTitle })
+            .andWhere('assignment.deletedAt IS NULL')
+            .getOne();
+          if (duplicateTopicAssign) {
+            throw new ValidationError(
+              `A task with the title "${data.title.trim()}" already exists in this topic`,
+            );
+          }
+        }
+      }
+
+      const qb = assignmentRepo
+        .createQueryBuilder()
+        .update(Assignment)
+        .set({ ...data, updatedAt: () => 'now()' })
+        .where('id = :id', { id })
+        .andWhere('deletedAt IS NULL');
+
+      if (expectedUpdatedAt) {
+        qb.andWhere(
+          "date_trunc('milliseconds', updatedAt) = date_trunc('milliseconds', :expectedUpdatedAt::timestamptz)",
+          { expectedUpdatedAt },
+        );
+      }
+
+      const res = await qb.execute();
+      if (res.affected === 0) {
+        const check = await assignmentRepo.findOne({ where: { id } });
+        if (!check) {
+          return null;
+        }
+        throw new ConflictError(
+          'This item was modified concurrently by another user. Please reload the latest changes.',
+        );
+      }
+      return await assignmentRepo.findOne({ where: { id } });
+    });
   }
 
   async deleteAssignment(id: string): Promise<boolean> {

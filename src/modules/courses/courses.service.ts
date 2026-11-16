@@ -307,7 +307,7 @@ export class CoursesService {
 
     const normalizedTitle = data.title.trim().toLowerCase();
     const duplicateTopic = course.topics?.find(
-      (t) => t.title.trim().toLowerCase() === normalizedTitle,
+      (t) => t.title?.trim().toLowerCase() === normalizedTitle,
     );
     if (duplicateTopic) {
       throw new ValidationError(
@@ -317,7 +317,7 @@ export class CoursesService {
 
     for (const t of course.topics ?? []) {
       const duplicateSubtopic = t.subtopics?.find(
-        (s) => s.title.trim().toLowerCase() === normalizedTitle,
+        (s) => s.title?.trim().toLowerCase() === normalizedTitle,
       );
       if (duplicateSubtopic) {
         throw new ValidationError(
@@ -403,7 +403,7 @@ export class CoursesService {
     if (data.title !== undefined) {
       const normalizedTitle = data.title.trim().toLowerCase();
       const duplicateTopic = course.topics?.find(
-        (t) => t.id !== id && t.title.trim().toLowerCase() === normalizedTitle,
+        (t) => t.id !== id && t.title?.trim().toLowerCase() === normalizedTitle,
       );
       if (duplicateTopic) {
         throw new ValidationError(
@@ -413,7 +413,7 @@ export class CoursesService {
 
       for (const t of course.topics ?? []) {
         const duplicateSubtopic = t.subtopics?.find(
-          (s) => s.title.trim().toLowerCase() === normalizedTitle,
+          (s) => s.title?.trim().toLowerCase() === normalizedTitle,
         );
         if (duplicateSubtopic) {
           throw new ValidationError(
@@ -532,7 +532,7 @@ export class CoursesService {
 
     const normalizedTitle = data.title.trim().toLowerCase();
     const duplicateSibling = topic.subtopics?.find(
-      (s) => s.title.trim().toLowerCase() === normalizedTitle,
+      (s) => s.title?.trim().toLowerCase() === normalizedTitle,
     );
     if (duplicateSibling) {
       throw new ValidationError(
@@ -541,7 +541,7 @@ export class CoursesService {
     }
 
     const duplicateTopic = course.topics?.find(
-      (t) => t.title.trim().toLowerCase() === normalizedTitle,
+      (t) => t.title?.trim().toLowerCase() === normalizedTitle,
     );
     if (duplicateTopic) {
       throw new ValidationError(
@@ -603,7 +603,7 @@ export class CoursesService {
     if (data.title !== undefined) {
       const normalizedTitle = data.title.trim().toLowerCase();
       const duplicateSibling = topic.subtopics?.find(
-        (s) => s.id !== id && s.title.trim().toLowerCase() === normalizedTitle,
+        (s) => s.id !== id && s.title?.trim().toLowerCase() === normalizedTitle,
       );
       if (duplicateSibling) {
         throw new ValidationError(
@@ -612,7 +612,7 @@ export class CoursesService {
       }
 
       const duplicateTopic = course.topics?.find(
-        (t) => t.title.trim().toLowerCase() === normalizedTitle,
+        (t) => t.title?.trim().toLowerCase() === normalizedTitle,
       );
       if (duplicateTopic) {
         throw new ValidationError(
@@ -748,7 +748,7 @@ export class CoursesService {
     const normalizedTitle = data.title.trim().toLowerCase();
     if (data.scope === AssignmentScope.COURSE) {
       const duplicateCourseAssign = (course.courseAssignments || course.assignments)?.find(
-        (a) => a.title.trim().toLowerCase() === normalizedTitle,
+        (a) => a.title?.trim().toLowerCase() === normalizedTitle,
       );
       if (duplicateCourseAssign) {
         throw new ValidationError(
@@ -762,19 +762,12 @@ export class CoursesService {
       }
 
       const duplicateTopicAssign = topic.assignments?.find(
-        (a) => a.title.trim().toLowerCase() === normalizedTitle,
+        (a) => a.title?.trim().toLowerCase() === normalizedTitle,
       );
       if (duplicateTopicAssign) {
         throw new ValidationError(
           `A task with the title "${data.title.trim()}" already exists in this topic`,
         );
-      }
-    }
-
-    if (data.scope === AssignmentScope.TOPIC && data.topicId) {
-      const topic = await coursesRepository.findTopicById(data.topicId);
-      if (!topic || topic.courseId !== courseId) {
-        throw new ValidationError('Specified topic does not belong to this course');
       }
     }
 
@@ -830,7 +823,7 @@ export class CoursesService {
       const normalizedTitle = data.title.trim().toLowerCase();
       if (assignment.scope === AssignmentScope.COURSE) {
         const duplicateCourseAssign = (course.courseAssignments || course.assignments)?.find(
-          (a) => a.id !== id && a.title.trim().toLowerCase() === normalizedTitle,
+          (a) => a.id !== id && a.title?.trim().toLowerCase() === normalizedTitle,
         );
         if (duplicateCourseAssign) {
           throw new ValidationError(
@@ -840,7 +833,7 @@ export class CoursesService {
       } else if (assignment.scope === AssignmentScope.TOPIC && assignment.topicId) {
         const topic = await coursesRepository.findTopicById(assignment.topicId);
         const duplicateTopicAssign = topic?.assignments?.find(
-          (a) => a.id !== id && a.title.trim().toLowerCase() === normalizedTitle,
+          (a) => a.id !== id && a.title?.trim().toLowerCase() === normalizedTitle,
         );
         if (duplicateTopicAssign) {
           throw new ValidationError(
