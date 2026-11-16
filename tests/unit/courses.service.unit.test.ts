@@ -601,4 +601,127 @@ void describe('CoursesService Unit Tests', () => {
       }
     });
   });
+
+  void describe('cloneCourse Title Truncation & Collision Loop (F-001)', () => {
+    void it('guarantees forward progress for 150-char course title without infinite loop', async () => {
+      const originalTransaction = AppDataSource.transaction.bind(AppDataSource);
+      const longTitle = 'A'.repeat(150);
+
+      const mockSource: Partial<Course> = {
+        id: 'source-1',
+        title: longTitle,
+        description: 'Test Description',
+        estimatedMinutes: 60,
+        topics: [],
+      };
+
+      let createdTitle = '';
+      const existingTitles = new Set([longTitle.toLowerCase()]);
+
+      // Mock transaction and repositories
+      AppDataSource.transaction = ((cb: (manager: unknown) => Promise<unknown>) => {
+        const fakeManager = {
+          getRepository: () => ({
+            createQueryBuilder: () => {
+              let titleParam = '';
+              return {
+                where: (_clause: string, params: { title: string }) => {
+                  titleParam = params.title.toLowerCase();
+                  return {
+                    andWhere: () => ({
+                      getOne: () =>
+                        Promise.resolve(
+                          existingTitles.has(titleParam) ? ({ id: 'existing' } as Course) : null,
+                        ),
+                    }),
+                  };
+                },
+              };
+            },
+            create: (data: { title: string }) => {
+              createdTitle = data.title;
+              return { id: 'cloned-1', ...data };
+            },
+            save: (course: Course) => Promise.resolve(course),
+          }),
+        };
+        return cb(fakeManager);
+      }) as unknown as typeof AppDataSource.transaction;
+
+      const origFindCourseById = coursesRepository.findCourseById.bind(coursesRepository);
+      coursesRepository.findCourseById = () => Promise.resolve(mockSource as Course);
+
+      try {
+        const cloned = await coursesRepository.cloneCourse('source-1', 'new-user-id');
+        assert.ok(cloned);
+        assert.ok(createdTitle.length <= 150);
+        assert.ok(createdTitle.endsWith('(Copy)'));
+        assert.notEqual(createdTitle, longTitle);
+      } finally {
+        AppDataSource.transaction = originalTransaction;
+        coursesRepository.findCourseById = origFindCourseById;
+      }
+    });
+
+    void it('generates (Copy 2) when (Copy) already exists for 150-char course title', async () => {
+      const originalTransaction = AppDataSource.transaction.bind(AppDataSource);
+      const longTitle = 'B'.repeat(150);
+
+      const mockSource: Partial<Course> = {
+        id: 'source-2',
+        title: longTitle,
+        description: 'Test Description',
+        estimatedMinutes: 60,
+        topics: [],
+      };
+
+      let createdTitle = '';
+      // Simulate that the base 150-char title AND the first copy candidate already exist
+      const firstCopyTitle = `${'B'.repeat(143)} (Copy)`.toLowerCase();
+      const existingTitles = new Set([longTitle.toLowerCase(), firstCopyTitle]);
+
+      AppDataSource.transaction = ((cb: (manager: unknown) => Promise<unknown>) => {
+        const fakeManager = {
+          getRepository: () => ({
+            createQueryBuilder: () => {
+              let titleParam = '';
+              return {
+                where: (_clause: string, params: { title: string }) => {
+                  titleParam = params.title.toLowerCase();
+                  return {
+                    andWhere: () => ({
+                      getOne: () =>
+                        Promise.resolve(
+                          existingTitles.has(titleParam) ? ({ id: 'existing' } as Course) : null,
+                        ),
+                    }),
+                  };
+                },
+              };
+            },
+            create: (data: { title: string }) => {
+              createdTitle = data.title;
+              return { id: 'cloned-2', ...data };
+            },
+            save: (course: Course) => Promise.resolve(course),
+          }),
+        };
+        return cb(fakeManager);
+      }) as unknown as typeof AppDataSource.transaction;
+
+      const origFindCourseById = coursesRepository.findCourseById.bind(coursesRepository);
+      coursesRepository.findCourseById = () => Promise.resolve(mockSource as Course);
+
+      try {
+        const cloned = await coursesRepository.cloneCourse('source-2', 'new-user-id');
+        assert.ok(cloned);
+        assert.ok(createdTitle.length <= 150);
+        assert.ok(createdTitle.endsWith('(Copy 2)'));
+        assert.notEqual(createdTitle, longTitle);
+      } finally {
+        AppDataSource.transaction = originalTransaction;
+        coursesRepository.findCourseById = origFindCourseById;
+      }
+    });
+  });
 });

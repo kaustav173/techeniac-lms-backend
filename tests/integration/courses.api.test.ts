@@ -116,6 +116,8 @@ void describe('Courses API Integration Tests', () => {
       }
       return Promise.resolve(null);
     };
+
+    coursesRepository.findCourseByTitle = () => Promise.resolve(null);
   });
 
   void describe('Collaborative Editing across Mentors & Admins (CRS-18)', () => {
