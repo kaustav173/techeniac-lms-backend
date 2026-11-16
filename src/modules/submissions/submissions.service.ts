@@ -100,11 +100,20 @@ export class SubmissionsService {
 
     // Fetch submissions for target assignments
     const allocationIds = allocations.map((a) => a.allocationId);
-    const hasStatusFilter = Boolean(query.status && query.status !== 'ALL');
+    const activeStatuses =
+      query.statuses && query.statuses.length > 0
+        ? query.statuses.filter((s) => s !== 'ALL')
+        : query.status && query.status !== 'ALL'
+          ? [query.status]
+          : [];
+    const hasStatusFilter = activeStatuses.length > 0;
+    const searchTrimmed = query.search?.trim().toLowerCase();
+    const hasSearchFilter = Boolean(searchTrimmed);
+    const hasFilter = hasStatusFilter || hasSearchFilter;
     const totalAssignmentsCount = assignments.length;
 
     // Fast-path: When viewing unfiltered assignments (default view), paginate assignments before querying submissions
-    const targetAssignments = hasStatusFilter
+    const targetAssignments = hasFilter
       ? assignments
       : assignments.slice((query.page - 1) * query.limit, query.page * query.limit);
 
@@ -156,11 +165,17 @@ export class SubmissionsService {
         derivedStatus = 'PENDING';
       }
 
-      if (query.status && query.status !== 'ALL') {
-        const matches = Array.isArray(query.status)
-          ? (query.status as unknown as string[]).includes(derivedStatus)
-          : derivedStatus === query.status;
-        if (!matches) {
+      if (searchTrimmed) {
+        const matchesTitle = assignment.title?.toLowerCase().includes(searchTrimmed);
+        const matchesCourse = assignment.course?.title?.toLowerCase().includes(searchTrimmed);
+        const matchesTopic = assignment.topic?.title?.toLowerCase().includes(searchTrimmed);
+        if (!matchesTitle && !matchesCourse && !matchesTopic) {
+          continue;
+        }
+      }
+
+      if (hasStatusFilter) {
+        if (!activeStatuses.includes(derivedStatus)) {
           continue;
         }
       }
@@ -200,8 +215,8 @@ export class SubmissionsService {
       });
     }
 
-    if (!hasStatusFilter) {
-      const totalPages = Math.ceil(totalAssignmentsCount / query.limit);
+    if (!hasFilter) {
+      const totalPages = Math.ceil(totalAssignmentsCount / query.limit) || 1;
       return {
         items,
         total: totalAssignmentsCount,
@@ -214,7 +229,7 @@ export class SubmissionsService {
     const total = items.length;
     const startIndex = (query.page - 1) * query.limit;
     const paginatedItems = items.slice(startIndex, startIndex + query.limit);
-    const totalPages = Math.ceil(total / query.limit);
+    const totalPages = Math.ceil(total / query.limit) || 1;
 
     return {
       items: paginatedItems,
