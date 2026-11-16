@@ -305,6 +305,10 @@ export class ProgressService {
       id: string;
       courseId: string;
       courseTitle: string;
+      menteeId: string;
+      menteeName: string;
+      batchId: string | null;
+      batchName: string | null;
       status: CourseAllocationStatus;
       progressPercent: number;
       startDate: Date;
@@ -380,6 +384,10 @@ export class ProgressService {
         id: allocation.id,
         courseId: allocation.courseId,
         courseTitle: allocation.course?.title ?? 'Assigned Course',
+        menteeId: allocation.userId,
+        menteeName: allocation.user?.name ?? 'Learner',
+        batchId: allocation.batchId ?? null,
+        batchName: allocation.batch?.name ?? null,
         status: allocation.status,
         progressPercent: Number(allocation.progressPercent),
         startDate: allocation.startDate,
