@@ -15,14 +15,16 @@ export const submissionQueueQuerySchema = z.object({
         z.nativeEnum(SubmissionStatus),
         z.literal('ALL'),
         z.array(z.nativeEnum(SubmissionStatus)),
-        z.string().transform((val) => {
-          if (val === 'ALL') return 'ALL';
-          const parts = val
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean);
-          return parts.length === 1 ? parts[0] : parts;
-        }),
+        z
+          .string()
+          .transform((val) => {
+            if (val === 'ALL') return 'ALL' as const;
+            return val
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+          })
+          .pipe(z.union([z.literal('ALL'), z.array(z.nativeEnum(SubmissionStatus))])),
       ])
       .optional()
       .default(SubmissionStatus.SUBMITTED),

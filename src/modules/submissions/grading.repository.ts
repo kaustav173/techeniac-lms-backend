@@ -1,4 +1,4 @@
-import { type EntityManager, Repository } from 'typeorm';
+import { type EntityManager, Repository, type SelectQueryBuilder } from 'typeorm';
 
 import { AppDataSource } from '../../core/db';
 import { CourseAllocation } from '../allocations';
@@ -145,6 +145,21 @@ export class GradingRepository {
     return sub ? sub.version : null;
   }
 
+  private applyStatusFilter(
+    qb: SelectQueryBuilder<Submission>,
+    status?: SubmissionQueueQuery['status'],
+  ): void {
+    if (status && status !== 'ALL') {
+      if (Array.isArray(status)) {
+        if (status.length > 0) {
+          qb.andWhere('sub.status IN (:...statusFilter)', { statusFilter: status });
+        }
+      } else {
+        qb.andWhere('sub.status = :statusFilter', { statusFilter: status });
+      }
+    }
+  }
+
   async getSubmissionQueue(
     query: SubmissionQueueQuery,
     actorRole: UserRole,
@@ -190,15 +205,7 @@ export class GradingRepository {
     }
 
     // Filter by status (default SUBMITTED / "Pending review" per FR-10.3)
-    if (query.status && query.status !== 'ALL') {
-      if (Array.isArray(query.status)) {
-        if (query.status.length > 0) {
-          qb.andWhere('sub.status IN (:...statusFilter)', { statusFilter: query.status });
-        }
-      } else {
-        qb.andWhere('sub.status = :statusFilter', { statusFilter: query.status });
-      }
-    }
+    this.applyStatusFilter(qb, query.status);
 
     // Query Filters
     if (query.batchId) {
@@ -286,15 +293,7 @@ export class GradingRepository {
       }
     }
 
-    if (query.status && query.status !== 'ALL') {
-      if (Array.isArray(query.status)) {
-        if (query.status.length > 0) {
-          countQb.andWhere('sub.status IN (:...statusFilter)', { statusFilter: query.status });
-        }
-      } else {
-        countQb.andWhere('sub.status = :statusFilter', { statusFilter: query.status });
-      }
-    }
+    this.applyStatusFilter(countQb, query.status);
     if (query.batchId) {
       countQb.andWhere('sub.batchId = :batchId', { batchId: query.batchId });
     }

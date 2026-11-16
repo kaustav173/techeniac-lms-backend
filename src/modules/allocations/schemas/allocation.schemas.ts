@@ -95,7 +95,11 @@ const commaSeparatedUuidsSchema = z
     ),
     z.array(z.string()),
   ])
-  .pipe(z.array(z.string().uuid('Invalid UUID in list')))
+  .pipe(
+    z
+      .array(z.string().uuid('Invalid UUID in list'))
+      .max(20, 'At most 20 values may be filtered at once'),
+  )
   .optional();
 
 export const listAllocationsQuerySchema = z.object({

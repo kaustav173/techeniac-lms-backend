@@ -320,7 +320,7 @@ export class DashboardRepository {
   }> {
     const allocations = await this.allocationRepo
       .createQueryBuilder('ca')
-      .leftJoinAndSelect('ca.course', 'c')
+      .innerJoin(Course, 'c', 'c.id = ca.course_id AND c.deleted_at IS NULL')
       .where('ca.userId = :menteeId', { menteeId })
       .andWhere('ca.deletedAt IS NULL')
       .getMany();
@@ -351,7 +351,7 @@ export class DashboardRepository {
   public async getMenteePendingAssignmentsCount(menteeId: string): Promise<number> {
     const allocations = await this.allocationRepo
       .createQueryBuilder('ca')
-      .innerJoin(Course, 'c', 'c.id = ca.course_id AND c.deleted_at IS NULL AND c.is_active = true')
+      .innerJoin(Course, 'c', 'c.id = ca.course_id AND c.deleted_at IS NULL')
       .leftJoin(Batch, 'b', 'b.id = ca.batch_id AND b.deleted_at IS NULL')
       .where('ca.userId = :menteeId', { menteeId })
       .andWhere('ca.deletedAt IS NULL')

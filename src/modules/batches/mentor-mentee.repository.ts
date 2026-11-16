@@ -111,6 +111,21 @@ export class MentorMenteeRepository {
     return await query.orderBy('mm.start_date', 'ASC').getMany();
   }
 
+  public async isMenteeMappedToMentor(
+    mentorId: string,
+    menteeId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const count = await this.getRepo(manager).count({
+      where: {
+        mentorId,
+        menteeId,
+        isActive: true,
+      },
+    });
+    return count > 0;
+  }
+
   public async findActiveMappingForMentee(
     menteeId: string,
     manager?: EntityManager,

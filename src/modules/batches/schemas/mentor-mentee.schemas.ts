@@ -38,8 +38,9 @@ export const mentorQuerySchema = z.object({
             .map((s) => s.trim())
             .filter(Boolean),
         ),
-        z.array(z.string().uuid()),
+        z.array(z.string()),
       ])
+      .pipe(z.array(z.string().uuid('Invalid UUID in batchIds')))
       .optional(),
   }),
 });
