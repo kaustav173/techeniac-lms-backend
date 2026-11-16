@@ -320,7 +320,7 @@ export class DashboardRepository {
   }> {
     const allocations = await this.allocationRepo
       .createQueryBuilder('ca')
-      .innerJoin(Course, 'c', 'c.id = ca.course_id AND c.deleted_at IS NULL AND c.is_active = true')
+      .leftJoinAndSelect('ca.course', 'c')
       .where('ca.userId = :menteeId', { menteeId })
       .andWhere('ca.deletedAt IS NULL')
       .getMany();
@@ -334,10 +334,11 @@ export class DashboardRepository {
       (a) => a.status === CourseAllocationStatus.COMPLETED,
     );
 
+    const validAllocations = [...activeAllocations, ...completedAllocations];
     let overallProgressPercent = 0;
-    if (activeAllocations.length > 0) {
-      const sum = activeAllocations.reduce((acc, a) => acc + Number(a.progressPercent || 0), 0);
-      overallProgressPercent = Math.round((sum / activeAllocations.length) * 10) / 10;
+    if (validAllocations.length > 0) {
+      const sum = validAllocations.reduce((acc, a) => acc + Number(a.progressPercent || 0), 0);
+      overallProgressPercent = Math.round((sum / validAllocations.length) * 10) / 10;
     }
 
     return {
