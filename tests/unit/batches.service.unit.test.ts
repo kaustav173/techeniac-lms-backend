@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { beforeEach, describe, it } from 'node:test';
 
-import type { DataSource } from 'typeorm';
+import type { DataSource, EntityManager, SelectQueryBuilder } from 'typeorm';
 
 import { ForbiddenError } from '../../src/core/errors';
 import {
@@ -375,6 +375,100 @@ void describe('Batches Mentor Scoping Unit Tests', () => {
     const defaults = batchQuerySchema.shape.query.parse({});
     assert.equal(defaults.sortBy, 'createdAt');
     assert.equal(defaults.sortOrder, 'desc');
+  });
+
+  void describe('BatchRepository.findActiveMenteeMembership', () => {
+    function createMockMembershipQueryBuilder(
+      resolvedMember: BatchMember | null = mockMenteeMember,
+    ) {
+      const joins: Array<{ relation: string; alias: string }> = [];
+      const whereCalls: Array<{ condition: string; parameters?: Record<string, unknown> }> = [];
+      const andWhereCalls: Array<{ condition: string; parameters?: Record<string, unknown> }> = [];
+      let executedGetOne = false;
+
+      const qb = {
+        innerJoinAndSelect: (relation: string, alias: string) => {
+          joins.push({ relation, alias });
+          return qb;
+        },
+        where: (condition: string, parameters?: Record<string, unknown>) => {
+          whereCalls.push({ condition, parameters });
+          return qb;
+        },
+        andWhere: (condition: string, parameters?: Record<string, unknown>) => {
+          andWhereCalls.push({ condition, parameters });
+          return qb;
+        },
+        getOne: () => {
+          executedGetOne = true;
+          return Promise.resolve(resolvedMember);
+        },
+      };
+
+      return {
+        qb: qb as unknown as SelectQueryBuilder<BatchMember>,
+        joins,
+        whereCalls,
+        andWhereCalls,
+        getExecuted: () => executedGetOne,
+      };
+    }
+
+    void it('builds expected query with joins, parameters, soft-delete guards, and active status filters', async () => {
+      const { qb, joins, whereCalls, andWhereCalls, getExecuted } =
+        createMockMembershipQueryBuilder();
+      const mockMemberRepo = {
+        createQueryBuilder: () => qb,
+      };
+      const mockDataSource = {
+        getRepository: () => mockMemberRepo,
+      } as unknown as DataSource;
+
+      const repo = new BatchRepository(mockDataSource);
+      const targetUserId = 'target-mentee-123';
+      const member = await repo.findActiveMenteeMembership(targetUserId);
+
+      assert.equal(getExecuted(), true);
+      assert.equal(member, mockMenteeMember);
+
+      assert.deepEqual(joins, [{ relation: 'bm.batch', alias: 'b' }]);
+      assert.deepEqual(whereCalls, [
+        { condition: 'bm.userId = :userId', parameters: { userId: targetUserId } },
+      ]);
+      assert.deepEqual(andWhereCalls, [
+        { condition: 'bm.memberRole = :role', parameters: { role: BatchMemberRole.MENTEE } },
+        { condition: 'bm.isActive = :isActive', parameters: { isActive: true } },
+        { condition: 'bm.deletedAt IS NULL', parameters: undefined },
+        { condition: 'b.deletedAt IS NULL', parameters: undefined },
+        {
+          condition: 'b.status IN (:...activeStatuses)',
+          parameters: {
+            activeStatuses: [BatchStatus.DRAFT, BatchStatus.LIVE, BatchStatus.ON_HOLD],
+          },
+        },
+      ]);
+    });
+
+    void it('delegates to EntityManager when manager is provided', async () => {
+      const { qb, getExecuted } = createMockMembershipQueryBuilder(null);
+      let managerRepoInvoked = false;
+      const mockManager = {
+        getRepository: () => {
+          managerRepoInvoked = true;
+          return { createQueryBuilder: () => qb };
+        },
+      };
+
+      const repo = new BatchRepository();
+      const member = await repo.findActiveMenteeMembership(
+        'user-none',
+        mockManager as unknown as EntityManager,
+      );
+
+      assert.equal(managerRepoInvoked, true);
+      assert.equal(getExecuted(), true);
+      assert.equal(member, null);
+    });
   });
 });
 

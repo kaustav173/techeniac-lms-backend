@@ -363,7 +363,7 @@ export class BatchRepository {
       .innerJoinAndSelect('bm.batch', 'b')
       .where('bm.userId = :userId', { userId })
       .andWhere('bm.memberRole = :role', { role: BatchMemberRole.MENTEE })
-      .andWhere('bm.isActive = true')
+      .andWhere('bm.isActive = :isActive', { isActive: true })
       .andWhere('bm.deletedAt IS NULL')
       .andWhere('b.deletedAt IS NULL')
       .andWhere('b.status IN (:...activeStatuses)', {
