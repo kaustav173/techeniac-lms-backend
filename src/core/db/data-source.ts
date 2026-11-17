@@ -12,7 +12,7 @@ export const AppDataSource = new DataSource({
   logging: env.LOG_LEVEL === 'debug',
   extra: {
     max: 10,
-    idleTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 25000,
     keepAlive: true,
     keepAliveInitialDelayMillis: 10000,
