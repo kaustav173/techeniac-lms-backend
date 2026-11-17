@@ -358,16 +358,18 @@ export class BatchRepository {
     userId: string,
     manager?: EntityManager,
   ): Promise<BatchMember | null> {
-    return this.getMemberRepo(manager).findOne({
-      where: {
-        userId,
-        memberRole: BatchMemberRole.MENTEE,
-        isActive: true,
-      },
-      relations: {
-        batch: true,
-      },
-    });
+    return this.getMemberRepo(manager)
+      .createQueryBuilder('bm')
+      .innerJoinAndSelect('bm.batch', 'b')
+      .where('bm.userId = :userId', { userId })
+      .andWhere('bm.memberRole = :role', { role: BatchMemberRole.MENTEE })
+      .andWhere('bm.isActive = true')
+      .andWhere('bm.deletedAt IS NULL')
+      .andWhere('b.deletedAt IS NULL')
+      .andWhere('b.status IN (:...activeStatuses)', {
+        activeStatuses: [BatchStatus.DRAFT, BatchStatus.LIVE, BatchStatus.ON_HOLD],
+      })
+      .getOne();
   }
 
   public async findActiveMemberInBatch(
