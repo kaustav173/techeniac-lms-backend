@@ -187,23 +187,22 @@ export class AuthService implements IAuthService {
       throw new UnauthorizedError('Invalid or expired refresh token');
     }
 
-    return await AppDataSource.transaction(async (manager) => {
-      // Row-level locking to prevent race condition when concurrent /refresh requests arrive
+    const result = await AppDataSource.transaction(async (manager) => {
+      // Serialize rotation and reuse detection across all tokens in the same family.
+      await this.tokenRepo.lockRefreshFamily(payload.familyId, manager);
       const tokenRow = await this.tokenRepo.findByJti(payload.jti, { lock: true, manager });
-      if (tokenRow?.tokenType !== TokenType.REFRESH) {
+      if (tokenRow?.tokenType !== TokenType.REFRESH || tokenRow.familyId !== payload.familyId) {
         throw new UnauthorizedError('Invalid refresh token');
       }
 
       // Reuse detection: if the token was already revoked, terminate the entire family
       if (tokenRow.revokedAt !== null) {
-        if (tokenRow.familyId) {
-          await this.tokenRepo.revokeFamily(
-            tokenRow.familyId,
-            TokenRevokeReason.REUSE_DETECTED,
-            manager,
-          );
-        }
-        throw new UnauthorizedError(
+        await this.tokenRepo.revokeFamily(
+          payload.familyId,
+          TokenRevokeReason.REUSE_DETECTED,
+          manager,
+        );
+        return new UnauthorizedError(
           'Token reuse detected. All sessions in this family have been terminated.',
         );
       }
@@ -220,7 +219,7 @@ export class AuthService implements IAuthService {
           undefined,
           manager,
         );
-        throw new UnauthorizedError('Session is no longer valid');
+        return new UnauthorizedError('Session is no longer valid');
       }
 
       if (user.tokenVersion !== tokenRow.tokenVersion) {
@@ -230,7 +229,7 @@ export class AuthService implements IAuthService {
           undefined,
           manager,
         );
-        throw new UnauthorizedError('Session is no longer valid');
+        return new UnauthorizedError('Session is no longer valid');
       }
 
       // Token rotation: issue new token with same family_id first, then link replaced_by_id
@@ -256,16 +255,8 @@ export class AuthService implements IAuthService {
         manager,
       );
       if (!revoked) {
-        if (tokenRow.familyId) {
-          await this.tokenRepo.revokeFamily(
-            tokenRow.familyId,
-            TokenRevokeReason.REUSE_DETECTED,
-            manager,
-          );
-        }
-        throw new UnauthorizedError(
-          'Token reuse detected. All sessions in this family have been terminated.',
-        );
+        // Roll back the replacement if the original could not be marked as rotated.
+        throw new UnauthorizedError('Session is no longer valid');
       }
 
       const accessToken = signAccessToken({
@@ -278,7 +269,7 @@ export class AuthService implements IAuthService {
       const refreshToken = signRefreshToken({
         sub: user.id,
         jti: newJti,
-        familyId: tokenRow.familyId ?? newJti,
+        familyId: payload.familyId,
         tokenVersion: user.tokenVersion,
       });
 
@@ -290,6 +281,12 @@ export class AuthService implements IAuthService {
         },
       };
     });
+
+    // Revocations must commit before the request is rejected.
+    if (result instanceof UnauthorizedError) {
+      throw result;
+    }
+    return result;
   }
 
   public async logout(rawRefreshToken?: string): Promise<void> {

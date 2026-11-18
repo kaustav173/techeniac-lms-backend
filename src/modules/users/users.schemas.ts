@@ -34,7 +34,7 @@ export const changeRoleSchema = z.object({
 });
 
 export const userIdParamsSchema = z.object({
-  id: z.string().uuid('Invalid user ID format'),
+  id: z.string().guid('Invalid user ID format'),
 });
 
 function parseDelimitedParam(val: unknown, normalize: (value: string) => string): unknown {
@@ -77,7 +77,7 @@ export const userQuerySchema = z.object({
     )
     .optional(),
   search: z.string().trim().max(100).optional(),
-  batchId: z.string().uuid('Invalid batch ID').optional(),
+  batchId: z.string().guid('Invalid batch ID').optional(),
   mentorId: z
     .preprocess(
       (val) => {
@@ -95,7 +95,7 @@ export const userQuerySchema = z.object({
         return val;
       },
       z
-        .array(z.string().uuid('Invalid mentor ID format'))
+        .array(z.string().guid('Invalid mentor ID format'))
         .max(20, 'At most 20 mentor IDs may be filtered at once')
         .optional(),
     )

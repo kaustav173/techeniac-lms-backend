@@ -8,7 +8,7 @@ import {
   verifyResetTokenRateLimiter,
 } from '../../core/http';
 import { authController } from './auth.controller';
-import { requireAuth } from './auth.middleware';
+import { requireAuth, requireAuthForSessionRecovery } from './auth.middleware';
 import {
   changePasswordSchema,
   forgotPasswordSchema,
@@ -29,7 +29,7 @@ authRouter.post(
   authController.refresh,
 );
 authRouter.post('/logout', authController.logout);
-authRouter.get('/me', requireAuth, authController.getMe);
+authRouter.get('/me', requireAuthForSessionRecovery, authController.getMe);
 authRouter.post(
   '/forgot-password',
   passwordResetRateLimiter,
@@ -50,7 +50,7 @@ authRouter.post(
 );
 authRouter.post(
   '/change-password',
-  requireAuth,
+  requireAuthForSessionRecovery,
   validate(changePasswordSchema),
   authController.changePassword,
 );

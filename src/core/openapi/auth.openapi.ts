@@ -1,9 +1,18 @@
+const bearerModeParameter = {
+  name: 'X-Auth-Mode',
+  in: 'header',
+  required: false,
+  description:
+    'Set to bearer for a non-browser request without cookies. Bearer mode returns tokens in JSON. Default mode sets HttpOnly cookies and returns the user.',
+  schema: { type: 'string', enum: ['bearer'] },
+} as const;
+
 export const authOpenApiSpec = {
   openapi: '3.0.3',
   info: {
     title: 'TechEniac LMS - Auth API',
     version: '0.1.0',
-    description: 'Enterprise authentication and session management contract',
+    description: 'Authentication and session management. Responses use Cache-Control: no-store.',
   },
   servers: [
     {
@@ -15,6 +24,7 @@ export const authOpenApiSpec = {
     '/auth/login': {
       post: {
         summary: 'Authenticate user credentials',
+        parameters: [bearerModeParameter],
         requestBody: {
           required: true,
           content: {
@@ -31,9 +41,9 @@ export const authOpenApiSpec = {
           },
         },
         responses: {
-          '200': { description: 'Successful login returning tokens and user payload' },
+          '200': { description: 'User returned with session cookies or explicit bearer tokens' },
           '401': { description: 'Invalid email or password' },
-          '403': { description: 'Account deactivated' },
+          '403': { description: 'Account deactivated or bearer mode disallowed' },
           '429': { description: 'Rate limit exceeded' },
         },
       },
@@ -41,9 +51,24 @@ export const authOpenApiSpec = {
     '/auth/refresh': {
       post: {
         summary: 'Rotate refresh token and issue new access token',
+        parameters: [bearerModeParameter],
+        requestBody: {
+          description:
+            'Bearer mode requires a refresh token in the JSON body. Default mode reads the refreshToken cookie.',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['refreshToken'],
+                properties: { refreshToken: { type: 'string' } },
+              },
+            },
+          },
+        },
         responses: {
-          '200': { description: 'Tokens rotated successfully' },
+          '200': { description: 'Session rotated with cookies or explicit bearer tokens' },
           '401': { description: 'Invalid, expired, or replayed refresh token' },
+          '403': { description: 'Bearer mode disallowed' },
           '429': { description: 'Rate limit exceeded' },
         },
       },
@@ -141,6 +166,7 @@ export const authOpenApiSpec = {
     '/auth/change-password': {
       post: {
         summary: 'Change password for authenticated user',
+        parameters: [bearerModeParameter],
         security: [{ bearerAuth: [] }, { cookieAuth: [] }],
         requestBody: {
           required: true,
@@ -158,8 +184,11 @@ export const authOpenApiSpec = {
           },
         },
         responses: {
-          '200': { description: 'Password changed successfully' },
+          '200': {
+            description: 'Password changed and session renewed with cookies or bearer tokens',
+          },
           '401': { description: 'Incorrect current password or unauthenticated' },
+          '403': { description: 'Bearer mode disallowed' },
         },
       },
     },
@@ -216,6 +245,7 @@ export const authOpenApiSpec = {
           },
           '400': { description: 'Validation error' },
           '401': { description: 'Unauthorized' },
+          '403': { description: 'Password change required (PASSWORD_CHANGE_REQUIRED)' },
           '404': { description: 'User not found' },
         },
       },

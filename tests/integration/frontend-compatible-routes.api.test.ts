@@ -167,6 +167,26 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
       });
   });
 
+  void it('limits a pending password change to session recovery routes', async (t) => {
+    const admin = await userRepository.findById(adminId);
+    assert.ok(admin);
+    t.mock.method(userRepository, 'findById', () =>
+      Promise.resolve({ ...admin, mustChangePassword: true }),
+    );
+    const headers = { Authorization: `Bearer ${tokenAdmin}` };
+
+    const denied = await fetch(`${baseUrl}/admin/dashboard`, { headers });
+    assert.equal(denied.status, 403);
+    assert.deepEqual(await denied.json(), {
+      error: { code: 'PASSWORD_CHANGE_REQUIRED', message: 'Change your password to continue' },
+    });
+
+    const session = await fetch(`${baseUrl}/auth/me`, { headers });
+    assert.equal(session.status, 200);
+    const { data } = (await session.json()) as { data: { user: { mustChangePassword: boolean } } };
+    assert.equal(data.user.mustChangePassword, true);
+  });
+
   void describe('Admin Dashboard Endpoints & Redirects', () => {
     void it('serves admin dashboard at /admin/dashboard', async () => {
       const res = await fetch(`${baseUrl}/admin/dashboard`, {

@@ -36,7 +36,7 @@ async function startServer(): Promise<{ server: Server; baseUrl: string }> {
 async function testValidLogin(baseUrl: string): Promise<LoginResult> {
   const loginRes = await fetch(`${baseUrl}/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Auth-Mode': 'bearer' },
     body: JSON.stringify({
       email: ADMIN_EMAIL,
       password: ADMIN_PASSWORD,
@@ -46,17 +46,18 @@ async function testValidLogin(baseUrl: string): Promise<LoginResult> {
     success: boolean;
     data?: { tokens: { accessToken: string; refreshToken: string } };
   };
-  const cookiesHeader = loginRes.headers.get('set-cookie') ?? '';
-
   const hasAccessToken = Boolean(loginData.data?.tokens?.accessToken);
-  const hasRefreshTokenCookie = cookiesHeader.includes('refreshToken=');
   const passed =
-    loginRes.status === 200 && loginData.success && hasAccessToken && hasRefreshTokenCookie;
+    loginRes.status === 200 &&
+    loginData.success &&
+    hasAccessToken &&
+    Boolean(loginData.data?.tokens?.refreshToken) &&
+    !loginRes.headers.has('set-cookie');
 
   if (passed) {
-    console.log('✔ Test 1 PASS: Valid login returns 200, tokens, and httpOnly cookies');
+    process.stdout.write('✔ Test 1 PASS: Bearer login returns 200 and tokens\n');
   } else {
-    console.error('✘ Test 1 FAIL: Valid login failed', { status: loginRes.status, loginData });
+    console.error('✘ Test 1 FAIL: Bearer login failed', { status: loginRes.status });
   }
 
   return {
@@ -122,9 +123,9 @@ async function testTokenRotation(baseUrl: string, oldRefreshToken: string): Prom
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: `refreshToken=${oldRefreshToken}`,
+      'X-Auth-Mode': 'bearer',
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ refreshToken: oldRefreshToken }),
   });
   const refreshData = (await refreshRes.json()) as {
     success: boolean;
@@ -141,7 +142,6 @@ async function testTokenRotation(baseUrl: string, oldRefreshToken: string): Prom
   } else {
     console.error('✘ Test 4 FAIL: POST /refresh failed', {
       status: refreshRes.status,
-      refreshData,
     });
   }
 
@@ -153,9 +153,9 @@ async function testReuseDetection(baseUrl: string, oldRefreshToken: string): Pro
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Cookie: `refreshToken=${oldRefreshToken}`,
+      'X-Auth-Mode': 'bearer',
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ refreshToken: oldRefreshToken }),
   });
   const reuseData = (await reuseRes.json()) as {
     error?: { code: string; message: string };

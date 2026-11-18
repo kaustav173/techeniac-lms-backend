@@ -4,7 +4,7 @@ import { SubmissionStatus } from '../entities/submission.enums';
 
 export const submissionIdParamSchema = z.object({
   params: z.object({
-    submissionId: z.string().uuid({ message: 'submissionId must be a valid UUID' }),
+    submissionId: z.string().guid({ message: 'submissionId must be a valid UUID' }),
   }),
 });
 
@@ -28,10 +28,10 @@ export const submissionQueueQuerySchema = z.object({
       ])
       .optional()
       .default(SubmissionStatus.SUBMITTED),
-    batchId: z.string().uuid().optional(),
-    menteeId: z.string().uuid().optional(),
-    courseId: z.string().uuid().optional(),
-    topicId: z.string().uuid().optional(),
+    batchId: z.string().guid('Invalid uuid').optional(),
+    menteeId: z.string().guid('Invalid uuid').optional(),
+    courseId: z.string().guid('Invalid uuid').optional(),
+    topicId: z.string().guid('Invalid uuid').optional(),
     isLate: z
       .enum(['true', 'false'])
       .transform((v) => v === 'true')
@@ -61,7 +61,7 @@ export const submissionQueueQuerySchema = z.object({
 export const gradeSubmissionSchema = submissionIdParamSchema.extend({
   body: z.object({
     marks: z
-      .number({ required_error: 'Marks are required' })
+      .number({ error: (issue) => (issue.input === undefined ? 'Marks are required' : undefined) })
       .min(0, { message: 'Marks cannot be negative' }),
     feedback: z.string().max(5000, 'Feedback cannot exceed 5000 characters').optional().nullable(),
   }),
@@ -70,7 +70,12 @@ export const gradeSubmissionSchema = submissionIdParamSchema.extend({
 export const requestResubmissionSchema = submissionIdParamSchema.extend({
   body: z.object({
     feedback: z
-      .string({ required_error: 'Feedback is required when requesting resubmission' })
+      .string({
+        error: (issue) =>
+          issue.input === undefined
+            ? 'Feedback is required when requesting resubmission'
+            : undefined,
+      })
       .trim()
       .min(1, { message: 'Feedback comments are mandatory for resubmission request' })
       .max(5000, 'Feedback cannot exceed 5000 characters'),

@@ -1,7 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { readFileSync } from 'node:fs';
+import { isIP } from 'node:net';
+import { gunzipSync } from 'node:zlib';
 
 import type { NextFunction, Request, Response } from 'express';
-import geoip from 'geoip-country';
+import { type CountryResponse, Reader } from 'mmdb-lib';
 
 export interface RequestContext {
   ipAddress?: string;
@@ -15,6 +18,11 @@ export function getRequestContext(): RequestContext | undefined {
 }
 
 const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' });
+
+// This product includes GeoLite2 Data created by MaxMind, available from https://www.maxmind.com.
+const countryDatabase = new Reader<CountryResponse>(
+  gunzipSync(readFileSync(require.resolve('geolite2-country/GeoLite2-Country.mmdb.gz'))),
+);
 
 export function isPrivateOrLocalIp(ip: string): boolean {
   const clean = (ip.startsWith('::ffff:') ? ip.replace('::ffff:', '') : ip).trim().toLowerCase();
@@ -83,10 +91,11 @@ export function resolveCountry(ipAddress: string, req?: Request): string {
     return 'Local Network';
   }
 
-  // Real IP-to-country lookup
-  const geo = geoip.lookup(ipAddress);
-  if (geo?.country) {
-    return resolveCountryName(geo.country).slice(0, 100);
+  const countryCode = isIP(ipAddress)
+    ? countryDatabase.get(ipAddress)?.country?.iso_code
+    : undefined;
+  if (countryCode) {
+    return resolveCountryName(countryCode).slice(0, 100);
   }
 
   // Edge reverse-proxy fallback headers if present in future edge environments

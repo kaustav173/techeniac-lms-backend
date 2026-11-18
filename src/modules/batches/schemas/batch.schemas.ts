@@ -4,7 +4,9 @@ import { BatchMemberRole, BatchStatus } from '../entities/batch.enums';
 
 const calendarDateSchema = (fieldName: string) =>
   z
-    .string({ required_error: `${fieldName} is required` })
+    .string({
+      error: (issue) => (issue.input === undefined ? `${fieldName} is required` : undefined),
+    })
     .regex(/^\d{4}-\d{2}-\d{2}$/, `${fieldName} must be in YYYY-MM-DD format`)
     .refine((s) => {
       const d = new Date(s);
@@ -25,12 +27,16 @@ export const createBatchSchema = z.object({
   body: z
     .object({
       name: z
-        .string({ required_error: 'Batch name is required' })
+        .string({
+          error: (issue) => (issue.input === undefined ? 'Batch name is required' : undefined),
+        })
         .trim()
         .min(3, 'Batch name must be at least 3 characters')
         .max(100, 'Batch name must not exceed 100 characters'),
       code: z
-        .string({ required_error: 'Batch code is required' })
+        .string({
+          error: (issue) => (issue.input === undefined ? 'Batch code is required' : undefined),
+        })
         .trim()
         .min(3, 'Batch code must be at least 3 characters')
         .max(20, 'Batch code must not exceed 20 characters')
@@ -59,13 +65,13 @@ export const createBatchSchema = z.object({
 
 export const getBatchByIdSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid batch ID'),
+    id: z.string().guid('Invalid batch ID'),
   }),
 });
 
 export const updateBatchSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid batch ID'),
+    id: z.string().guid('Invalid batch ID'),
   }),
   body: z
     .object({
@@ -99,11 +105,11 @@ export const updateBatchSchema = z.object({
 
 export const changeBatchStatusSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid batch ID'),
+    id: z.string().guid('Invalid batch ID'),
   }),
   body: z.object({
     toStatus: z.nativeEnum(BatchStatus, {
-      errorMap: () => ({ message: 'Invalid batch status' }),
+      error: 'Invalid batch status',
     }),
     reason: z.string().max(500, 'Reason must not exceed 500 characters').optional().nullable(),
   }),
@@ -111,32 +117,32 @@ export const changeBatchStatusSchema = z.object({
 
 export const addBatchMembersSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid batch ID'),
+    id: z.string().guid('Invalid batch ID'),
   }),
   body: z.object({
     userIds: z
-      .array(z.string().uuid('Each user ID must be a valid UUID'))
+      .array(z.string().guid('Each user ID must be a valid UUID'))
       .min(1, 'At least one user must be specified'),
     memberRole: z.nativeEnum(BatchMemberRole, {
-      errorMap: () => ({ message: 'Invalid member role' }),
+      error: 'Invalid member role',
     }),
   }),
 });
 
 export const removeBatchMemberSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid batch ID'),
-    userId: z.string().uuid('Invalid user ID'),
+    id: z.string().guid('Invalid batch ID'),
+    userId: z.string().guid('Invalid user ID'),
   }),
 });
 
 export const transferMenteeSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid source batch ID'),
+    id: z.string().guid('Invalid source batch ID'),
   }),
   body: z.object({
-    menteeId: z.string().uuid('Invalid mentee ID'),
-    targetBatchId: z.string().uuid('Invalid target batch ID'),
+    menteeId: z.string().guid('Invalid mentee ID'),
+    targetBatchId: z.string().guid('Invalid target batch ID'),
     reason: z.string().max(500, 'Reason must not exceed 500 characters').optional().nullable(),
   }),
 });

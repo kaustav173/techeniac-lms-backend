@@ -6,7 +6,7 @@ import { AppDataSource } from '../../src/core/db';
 import { ForbiddenError, NotFoundError, UnauthorizedError } from '../../src/core/errors';
 /* eslint-disable architecture/cross-module-index-imports -- direct imports avoid circular barrel initialization during isolated unit testing */
 import { AuthResult, AuthService, AuthUserPayload } from '../../src/modules/auth/auth.service';
-import { Token, TokenType } from '../../src/modules/auth/entities/token.entity';
+import { Token, TokenRevokeReason, TokenType } from '../../src/modules/auth/entities/token.entity';
 import { TokenRepository } from '../../src/modules/auth/token.repository';
 /* eslint-enable architecture/cross-module-index-imports */
 import { User, UserRepository, UserRole } from '../../src/modules/users';
@@ -100,6 +100,7 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
     };
 
     mockTokenRepo = {
+      lockRefreshFamily: () => Promise.resolve(),
       createToken: () => Promise.resolve({ id: 'token-uuid' } as Token),
       findByJti: (jti: string) =>
         Promise.resolve({
@@ -212,6 +213,37 @@ void describe('AuthService Unit Tests - Payload Shape & Active Status (PR #32 F-
   });
 
   void describe('refresh', () => {
+    void it('commits family revocation before rejecting a reused refresh token', async () => {
+      const jti = 'rotated-jti';
+      const familyId = 'family-uuid';
+      let revoked = false;
+      let committed = false;
+      const manager = {};
+      AppDataSource.transaction = (async (runInTx: (m: unknown) => Promise<unknown>) => {
+        const result = await runInTx(manager);
+        committed = revoked;
+        return result;
+      }) as typeof AppDataSource.transaction;
+      mockTokenRepo.findByJti = () =>
+        Promise.resolve({ tokenType: TokenType.REFRESH, familyId, revokedAt: new Date() } as Token);
+      mockTokenRepo.revokeFamily = (id, reason, transactionManager) => {
+        assert.equal(id, familyId);
+        assert.equal(reason, TokenRevokeReason.REUSE_DETECTED);
+        assert.equal(transactionManager, manager);
+        revoked = true;
+        return Promise.resolve();
+      };
+      const token = signRefreshToken({
+        sub: activeMockUser.id,
+        jti,
+        familyId,
+        tokenVersion: activeMockUser.tokenVersion,
+      });
+
+      await assert.rejects(() => authService.refresh(token), UnauthorizedError);
+      assert.equal(committed, true);
+    });
+
     void it('surfaces isActive and createdAt in auth payload on valid token refresh and matches exact key set', async () => {
       const validRefreshToken = signRefreshToken({
         sub: activeMockUser.id,

@@ -1,10 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
-import { type AnyZodObject, ZodError } from 'zod';
+import { ZodError, type ZodObject } from 'zod';
 
 import { ValidationError } from '../errors';
 
 export function validate(
-  schema: AnyZodObject,
+  schema: ZodObject,
 ): (req: Request, _res: Response, next: NextFunction) => Promise<void> {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -36,7 +36,7 @@ export function validate(
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const fieldErrors = error.errors.map((err) => ({
+        const fieldErrors = error.issues.map((err) => ({
           field: err.path.slice(1).join('.') || err.path.join('.'),
           message: err.message,
         }));

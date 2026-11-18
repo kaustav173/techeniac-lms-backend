@@ -50,6 +50,12 @@ export class TokenRepository {
     });
   }
 
+  public async lockRefreshFamily(familyId: string, manager: EntityManager): Promise<void> {
+    await manager.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      `auth-refresh:${familyId}`,
+    ]);
+  }
+
   public async revokeByJti(
     jti: string,
     reason: TokenRevokeReason,

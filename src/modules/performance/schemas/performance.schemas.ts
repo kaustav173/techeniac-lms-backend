@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
-import { CourseAllocationStatus } from '../../allocations';
+// eslint-disable-next-line architecture/cross-module-index-imports -- Zod 4 reads enum values during schema initialization, so avoid the allocations barrel cycle.
+import { CourseAllocationStatus } from '../../allocations/entities/allocation.enums';
 
-const createDelimitedFilterSchema = <T extends z.ZodTypeAny>(
+const createDelimitedFilterSchema = <T extends z.ZodType<string, string>>(
   itemSchema: T,
   maxItems = 20,
   maxMessage = 'At most 20 values may be filtered at once',
@@ -27,23 +28,23 @@ const createDelimitedFilterSchema = <T extends z.ZodTypeAny>(
 export const performanceFilterSchema = z.object({
   query: z.object({
     batchId: createDelimitedFilterSchema(
-      z.string().uuid('batchId must be a valid UUID'),
+      z.string().guid('batchId must be a valid UUID'),
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
     batchIds: createDelimitedFilterSchema(
-      z.string().uuid('batchIds must contain valid UUIDs'),
+      z.string().guid('batchIds must contain valid UUIDs'),
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
-    mentorId: z.string().uuid({ message: 'mentorId must be a valid UUID' }).optional(),
+    mentorId: z.string().guid({ message: 'mentorId must be a valid UUID' }).optional(),
     courseId: createDelimitedFilterSchema(
-      z.string().uuid('courseId must be a valid UUID'),
+      z.string().guid('courseId must be a valid UUID'),
       20,
       'At most 20 course IDs may be filtered at once',
     ),
     courseIds: createDelimitedFilterSchema(
-      z.string().uuid('courseIds must contain valid UUIDs'),
+      z.string().guid('courseIds must contain valid UUIDs'),
       20,
       'At most 20 course IDs may be filtered at once',
     ),
@@ -93,23 +94,23 @@ export const performanceFilterSchema = z.object({
 export const exportPerformanceSchema = z.object({
   query: z.object({
     batchId: createDelimitedFilterSchema(
-      z.string().uuid('batchId must be a valid UUID'),
+      z.string().guid('batchId must be a valid UUID'),
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
     batchIds: createDelimitedFilterSchema(
-      z.string().uuid('batchIds must contain valid UUIDs'),
+      z.string().guid('batchIds must contain valid UUIDs'),
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
-    mentorId: z.string().uuid().optional(),
+    mentorId: z.string().guid('Invalid uuid').optional(),
     courseId: createDelimitedFilterSchema(
-      z.string().uuid('courseId must be a valid UUID'),
+      z.string().guid('courseId must be a valid UUID'),
       20,
       'At most 20 course IDs may be filtered at once',
     ),
     courseIds: createDelimitedFilterSchema(
-      z.string().uuid('courseIds must contain valid UUIDs'),
+      z.string().guid('courseIds must contain valid UUIDs'),
       20,
       'At most 20 course IDs may be filtered at once',
     ),
@@ -158,7 +159,7 @@ export const exportPerformanceSchema = z.object({
 export const learningHistoryQuerySchema = z.object({
   query: z
     .object({
-      batchId: z.string().uuid().optional(),
+      batchId: z.string().guid('Invalid uuid').optional(),
       // Note: If any user attempts to pass userId or email in query, it is ignored by design
     })
     .passthrough(),

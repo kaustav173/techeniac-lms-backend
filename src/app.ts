@@ -7,6 +7,7 @@ import { env } from './core/config';
 import { healthRouter } from './core/health';
 import {
   corsMiddleware,
+  csrfMiddleware,
   errorMiddleware,
   notFoundMiddleware,
   requestContextMiddleware,
@@ -41,8 +42,13 @@ export function createApp(): Express {
   app.set('trust proxy', env.TRUST_PROXY_HOPS);
 
   app.use(helmet());
+  app.use('/api/v1/auth', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
   app.use(corsMiddleware);
   app.use(cookieParser());
+  app.use(csrfMiddleware);
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(requestContextMiddleware);
