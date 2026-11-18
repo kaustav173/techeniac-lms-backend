@@ -14,10 +14,10 @@ const isoDateTimeSchema = z.string().datetime({ offset: true });
 export const createAllocationsSchema = z.object({
   body: z
     .object({
-      courseId: z.string().uuid('Invalid course ID'),
+      courseId: z.string().guid('Invalid course ID'),
       targetType: allocationTargetTypeSchema,
-      batchId: z.string().uuid('Invalid batch ID').optional(),
-      menteeIds: z.array(z.string().uuid('Invalid mentee ID')).optional(),
+      batchId: z.string().guid('Invalid batch ID').optional(),
+      menteeIds: z.array(z.string().guid('Invalid mentee ID')).optional(),
       startDate: isoDateTimeSchema,
       dueDate: isoDateTimeSchema.optional(),
     })
@@ -97,7 +97,7 @@ const commaSeparatedUuidsSchema = z
   ])
   .pipe(
     z
-      .array(z.string().uuid('Invalid UUID in list'))
+      .array(z.string().guid('Invalid UUID in list'))
       .max(20, 'At most 20 values may be filtered at once'),
   )
   .optional();
@@ -106,11 +106,11 @@ export const listAllocationsQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(10),
-    courseId: z.string().uuid().optional(),
+    courseId: z.string().guid('Invalid uuid').optional(),
     courseIds: commaSeparatedUuidsSchema,
-    batchId: z.string().uuid().optional(),
+    batchId: z.string().guid('Invalid uuid').optional(),
     batchIds: commaSeparatedUuidsSchema,
-    menteeId: z.string().uuid().optional(),
+    menteeId: z.string().guid('Invalid uuid').optional(),
     status: allocationStatusFilterSchema.optional(),
     statuses: commaSeparatedStatusesSchema,
     dueDateFrom: z.string().optional(),
@@ -137,13 +137,13 @@ export const listAllocationsQuerySchema = z.object({
 
 export const allocationIdParamSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID'),
+    id: z.string().guid('Invalid allocation ID'),
   }),
 });
 
 export const updateAllocationDatesSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID'),
+    id: z.string().guid('Invalid allocation ID'),
   }),
   body: z
     .object({
@@ -169,7 +169,7 @@ export const bulkUpdateAllocationDatesSchema = z.object({
   body: z
     .object({
       allocationIds: z
-        .array(z.string().uuid('Invalid allocation ID'))
+        .array(z.string().guid('Invalid allocation ID'))
         .min(1, 'At least one allocation ID is required')
         .max(200, 'Cannot exceed 200 allocations in a single bulk operation'),
       startDate: isoDateTimeSchema.optional(),
@@ -192,10 +192,12 @@ export const bulkUpdateAllocationDatesSchema = z.object({
 
 export const addMenteesToAllocationSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID'),
+    id: z.string().guid('Invalid allocation ID'),
   }),
   body: z.object({
-    menteeIds: z.array(z.string().uuid()).min(1, 'At least one mentee ID is required'),
+    menteeIds: z
+      .array(z.string().guid('Invalid uuid'))
+      .min(1, 'At least one mentee ID is required'),
     startDate: isoDateTimeSchema.optional(),
     dueDate: isoDateTimeSchema.optional(),
   }),
@@ -203,16 +205,16 @@ export const addMenteesToAllocationSchema = z.object({
 
 export const revokeAllocationSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID'),
+    id: z.string().guid('Invalid allocation ID'),
   }),
 });
 
 export const assignmentDueOverrideSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID'),
+    id: z.string().guid('Invalid allocation ID'),
   }),
   body: z.object({
-    assignmentId: z.string().uuid('Invalid assignment ID'),
+    assignmentId: z.string().guid('Invalid assignment ID'),
     dueDate: isoDateTimeSchema,
   }),
 });
@@ -220,10 +222,10 @@ export const assignmentDueOverrideSchema = z.object({
 export const bulkAssignmentDueOverrideSchema = z.object({
   body: z.object({
     allocationIds: z
-      .array(z.string().uuid('Invalid allocation ID'))
+      .array(z.string().guid('Invalid allocation ID'))
       .min(1, 'At least one allocation ID is required')
       .max(200, 'Cannot exceed 200 allocations in a single bulk operation'),
-    assignmentId: z.string().uuid('Invalid assignment ID'),
+    assignmentId: z.string().guid('Invalid assignment ID'),
     dueDate: isoDateTimeSchema,
   }),
 });

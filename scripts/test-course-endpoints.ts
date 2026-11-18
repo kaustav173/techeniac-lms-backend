@@ -42,7 +42,7 @@ async function runTests(): Promise<void> {
     // 1. Authenticate as Admin
     const loginRes = await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Auth-Mode': 'bearer' },
       body: JSON.stringify({
         email: process.env.SEED_ADMIN_EMAIL || 'admin@TechEniac.com',
         password: process.env.SEED_ADMIN_PASSWORD || 'Admin123456!',
@@ -54,9 +54,7 @@ async function runTests(): Promise<void> {
     const token = loginData.data?.tokens.accessToken;
 
     if (!token) {
-      throw new Error(
-        `Failed to login as Admin for testing: status ${loginRes.status} ${JSON.stringify(loginData)}`,
-      );
+      throw new Error(`Failed to login as Admin for testing: status ${loginRes.status}`);
     }
     const headers = {
       'Content-Type': 'application/json',

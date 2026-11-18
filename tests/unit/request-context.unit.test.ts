@@ -151,6 +151,7 @@ void describe('Request Context Middleware & Utilities Unit Tests', () => {
       // 103.27.8.1 -> IN
       const inResult = resolveCountry('103.27.8.1');
       assert.equal(inResult, 'India (IN)');
+      assert.equal(resolveCountry('2001:4860:4860::8888'), 'United States (US)');
     });
 
     void it('falls back to valid edge country headers when IP is not present in GeoIP lookup', () => {
@@ -168,6 +169,7 @@ void describe('Request Context Middleware & Utilities Unit Tests', () => {
       const req = createMockRequest({ headers: {} });
       const result = resolveCountry('0.1.2.3', req);
       assert.equal(result, 'Public Network');
+      assert.equal(resolveCountry('not-an-ip', req), 'Public Network');
     });
 
     void it('rejects unbounded or invalid country fallback headers and bounds string length', () => {

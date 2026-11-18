@@ -23,7 +23,7 @@ export const getAuditLogsSchema = z.object({
           return val;
         }, z.array(auditTypeSchema))
         .optional(),
-      actorId: z.string().uuid('Invalid actor ID format').optional(),
+      actorId: z.string().guid('Invalid actor ID format').optional(),
       entity: z.string().min(1).max(100).optional(),
       action: z.string().min(1).max(100).optional(),
       search: z.string().trim().max(100).optional(),

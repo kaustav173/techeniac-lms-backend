@@ -95,7 +95,7 @@ void describe('Users Query & withoutActiveBatch Filter Unit Tests', () => {
       const result = userQuerySchema.safeParse({ mentorId: ids });
       assert.strictEqual(result.success, false);
       if (!result.success) {
-        assert.match(result.error.errors[0]?.message ?? '', /At most 20 mentor IDs/);
+        assert.match(result.error.issues[0]?.message ?? '', /At most 20 mentor IDs/);
       }
     });
 

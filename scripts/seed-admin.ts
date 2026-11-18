@@ -20,7 +20,7 @@ async function seedAdmin(): Promise<void> {
   const validationResult = passwordValidation.safeParse(password);
   if (!validationResult.success) {
     const errorMsg =
-      validationResult.error.errors[0]?.message ??
+      validationResult.error.issues[0]?.message ??
       'Password does not meet complexity requirements.';
     logger.error({ reason: errorMsg }, 'SEED_ADMIN_PASSWORD does not meet security requirements.');
     process.exit(1);

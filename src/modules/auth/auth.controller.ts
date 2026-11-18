@@ -3,9 +3,9 @@ import { StatusCodes } from 'http-status-codes';
 
 import { ACCESS_TOKEN_TTL_MS, REFRESH_TOKEN_TTL_MS } from '../../core/auth';
 import { env } from '../../core/config';
-import { UnauthorizedError } from '../../core/errors';
+import { ForbiddenError, UnauthorizedError } from '../../core/errors';
 import { BaseController } from '../../core/http';
-import { AuthService, authService } from './auth.service';
+import { type AuthResult, AuthService, authService } from './auth.service';
 import type {
   ChangePasswordInput,
   ForgotPasswordInput,
@@ -34,6 +34,25 @@ const refreshCookieOptions: CookieOptions = {
   maxAge: REFRESH_TOKEN_TTL_MS,
 };
 
+function usesBearerMode(req: Request): boolean {
+  if (req.get('X-Auth-Mode') !== 'bearer') {
+    return false;
+  }
+
+  if (
+    ['Cookie', 'Origin', 'Referer', 'Sec-Fetch-Site'].some(
+      (header) => req.get(header) !== undefined,
+    )
+  ) {
+    throw new ForbiddenError(
+      'Bearer mode requires a non-browser client without cookies',
+      'AUTH_MODE_FORBIDDEN',
+    );
+  }
+
+  return true;
+}
+
 export class AuthController extends BaseController {
   private serviceInstance?: AuthService;
 
@@ -46,26 +65,33 @@ export class AuthController extends BaseController {
     return this.serviceInstance ?? authService;
   }
 
-  public login = async (req: Request, res: Response): Promise<void> => {
-    const result = await this.service.login(req.body as LoginInput);
-
+  private sessionPayload(
+    res: Response,
+    result: AuthResult,
+    bearerMode: boolean,
+  ): AuthResult | Pick<AuthResult, 'user'> {
+    if (bearerMode) {
+      return result;
+    }
     res.cookie('accessToken', result.tokens.accessToken, accessCookieOptions);
     res.cookie('refreshToken', result.tokens.refreshToken, refreshCookieOptions);
+    return { user: result.user };
+  }
 
-    this.sendSuccess(res, result);
+  public login = async (req: Request, res: Response): Promise<void> => {
+    const bearerMode = usesBearerMode(req);
+    const result = await this.service.login(req.body as LoginInput);
+    this.sendSuccess(res, this.sessionPayload(res, result, bearerMode));
   };
 
   public refresh = async (req: Request, res: Response): Promise<void> => {
+    const bearerMode = usesBearerMode(req);
     const cookies = (req.cookies ?? {}) as Record<string, string | undefined>;
     const body = (req.body ?? {}) as Record<string, string | undefined>;
-    const token = cookies.refreshToken ?? body.refreshToken ?? '';
+    const token = (bearerMode ? body.refreshToken : cookies.refreshToken) ?? '';
 
     const result = await this.service.refresh(token);
-
-    res.cookie('accessToken', result.tokens.accessToken, accessCookieOptions);
-    res.cookie('refreshToken', result.tokens.refreshToken, refreshCookieOptions);
-
-    this.sendSuccess(res, result);
+    this.sendSuccess(res, this.sessionPayload(res, result, bearerMode));
   };
 
   public logout = async (req: Request, res: Response): Promise<void> => {
@@ -108,6 +134,7 @@ export class AuthController extends BaseController {
   };
 
   public changePassword = async (req: Request, res: Response): Promise<void> => {
+    const bearerMode = usesBearerMode(req);
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedError('Authentication required');
@@ -115,13 +142,10 @@ export class AuthController extends BaseController {
 
     const result = await this.service.changePassword(userId, req.body as ChangePasswordInput);
 
-    res.cookie('accessToken', result.tokens.accessToken, accessCookieOptions);
-    res.cookie('refreshToken', result.tokens.refreshToken, refreshCookieOptions);
-
     res.status(StatusCodes.OK).json({
       success: true,
       message: 'Password changed successfully',
-      data: result,
+      data: this.sessionPayload(res, result, bearerMode),
     });
   };
 

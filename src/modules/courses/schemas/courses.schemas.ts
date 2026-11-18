@@ -36,7 +36,7 @@ export const createCourseSchema = z.object({
 
 export const updateCourseSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid course ID'),
+    id: z.string().guid('Invalid course ID'),
   }),
   body: z.object({
     title: z
@@ -77,20 +77,20 @@ export const listCoursesQuerySchema = z.object({
 
 export const courseIdParamSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid course ID'),
+    id: z.string().guid('Invalid course ID'),
   }),
 });
 
 export const idParamSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid ID parameter'),
+    id: z.string().guid('Invalid ID parameter'),
   }),
 });
 
 // Topic Schemas
 export const createTopicSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid course ID'),
+    id: z.string().guid('Invalid course ID'),
   }),
   body: z.object({
     title: z.string().trim().min(1, 'Topic title cannot be empty').max(150),
@@ -108,7 +108,7 @@ export const createTopicSchema = z.object({
 
 export const updateTopicSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid topic ID'),
+    id: z.string().guid('Invalid topic ID'),
   }),
   body: z.object({
     title: z.string().trim().min(1, 'Topic title cannot be empty').max(150).optional(),
@@ -133,7 +133,7 @@ export const reorderItemsSchema = z.object({
     items: z
       .array(
         z.object({
-          id: z.string().uuid(),
+          id: z.string().guid('Invalid uuid'),
           displayOrder: z.coerce.number().int().min(0),
         }),
       )
@@ -153,7 +153,7 @@ export const reorderItemsSchema = z.object({
 // Subtopic Schemas
 export const createSubtopicSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid topic ID'),
+    id: z.string().guid('Invalid topic ID'),
   }),
   body: z.object({
     title: z.string().trim().min(1, 'Subtopic title cannot be empty').max(150),
@@ -171,7 +171,7 @@ export const createSubtopicSchema = z.object({
 
 export const updateSubtopicSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid subtopic ID'),
+    id: z.string().guid('Invalid subtopic ID'),
   }),
   body: z.object({
     title: z.string().trim().min(1, 'Subtopic title cannot be empty').max(150).optional(),
@@ -194,12 +194,12 @@ export const updateSubtopicSchema = z.object({
 // Assignment Schemas
 export const createAssignmentSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid course ID'),
+    id: z.string().guid('Invalid course ID'),
   }),
   body: z
     .object({
       scope: z.nativeEnum(AssignmentScope),
-      topicId: z.string().uuid().nullable().optional(),
+      topicId: z.string().guid('Invalid uuid').nullable().optional(),
       title: z.string().trim().min(1, 'Assignment title cannot be empty').max(150),
       instructions: z.string().trim().max(20000).optional(),
       estimatedMinutes: z.coerce
@@ -249,7 +249,7 @@ export const createAssignmentSchema = z.object({
 
 export const updateAssignmentSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid assignment ID'),
+    id: z.string().guid('Invalid assignment ID'),
   }),
   body: z
     .object({
@@ -288,7 +288,7 @@ export const updateAssignmentSchema = z.object({
 
 export const statusToggleSchema = z.object({
   params: z.object({
-    id: z.string().uuid(),
+    id: z.string().guid('Invalid uuid'),
   }),
   body: z.object({
     isActive: z.boolean(),

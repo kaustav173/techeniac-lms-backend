@@ -34,10 +34,15 @@ export const envSchema = z
       .optional()
       .transform((val) => (val && val.trim().length > 0 ? val.trim() : 'local-dev')),
     JWT_ACCESS_SECRET: z
-      .string({ required_error: 'JWT_ACCESS_SECRET is required' })
+      .string({
+        error: (issue) => (issue.input === undefined ? 'JWT_ACCESS_SECRET is required' : undefined),
+      })
       .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters long'),
     JWT_REFRESH_SECRET: z
-      .string({ required_error: 'JWT_REFRESH_SECRET is required' })
+      .string({
+        error: (issue) =>
+          issue.input === undefined ? 'JWT_REFRESH_SECRET is required' : undefined,
+      })
       .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters long'),
     JWT_ALGORITHM: z.literal('HS256').default('HS256'),
     ACCESS_TOKEN_TTL: z.string().default('15m'),
@@ -87,7 +92,7 @@ function loadEnv(): Env {
   const result = envSchema.safeParse(process.env);
 
   if (!result.success) {
-    const errorDetails = result.error.errors
+    const errorDetails = result.error.issues
       .map((err) => `  - ${err.path.join('.')}: ${err.message}`)
       .join('\n');
 

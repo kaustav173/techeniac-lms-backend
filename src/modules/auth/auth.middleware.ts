@@ -18,7 +18,23 @@ declare global {
 
 const BEARER_PREFIX = 'Bearer ';
 
-export async function requireAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export function requireAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  return authenticate(req, next, false);
+}
+
+export function requireAuthForSessionRecovery(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
+  return authenticate(req, next, true);
+}
+
+async function authenticate(
+  req: Request,
+  next: NextFunction,
+  allowPendingPasswordChange: boolean,
+): Promise<void> {
   const cookies = (req.cookies ?? {}) as Record<string, string | undefined>;
   const authHeader = req.headers.authorization;
 
@@ -44,6 +60,11 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
 
     if (user.tokenVersion !== payload.tokenVersion) {
       next(new UnauthorizedError('Session has expired or credentials have been updated'));
+      return;
+    }
+
+    if (user.mustChangePassword && !allowPendingPasswordChange) {
+      next(new ForbiddenError('Change your password to continue', 'PASSWORD_CHANGE_REQUIRED'));
       return;
     }
 

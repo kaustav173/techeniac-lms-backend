@@ -17,14 +17,16 @@ export const ASSIGNMENT_QUERY_STATUSES = ['ALL', ...ASSIGNMENT_DERIVED_STATUSES]
 export type AssignmentQueryStatus = (typeof ASSIGNMENT_QUERY_STATUSES)[number];
 export const createSubmissionSchema = z.object({
   body: z.object({
-    assignmentId: z.string().uuid({ message: 'assignmentId must be a valid UUID' }),
+    assignmentId: z.string().guid({ message: 'assignmentId must be a valid UUID' }),
     courseAllocationId: z
       .string()
-      .uuid({ message: 'courseAllocationId must be a valid UUID' })
+      .guid({ message: 'courseAllocationId must be a valid UUID' })
       .optional(),
     confirmedComplete: z.boolean({
-      required_error: 'Please confirm you have completed the assignment',
-      invalid_type_error: 'confirmedComplete must be a boolean',
+      error: (issue) =>
+        issue.input === undefined
+          ? 'Please confirm you have completed the assignment'
+          : 'confirmedComplete must be a boolean',
     }),
     submissionData: z
       .object({
@@ -66,8 +68,8 @@ const commaSeparatedAssignmentStatusesSchema = z
 
 export const listMyAssignmentsQuerySchema = z.object({
   query: z.object({
-    courseId: z.string().uuid().optional(),
-    topicId: z.string().uuid().optional(),
+    courseId: z.string().guid('Invalid uuid').optional(),
+    topicId: z.string().guid('Invalid uuid').optional(),
     status: z.enum(ASSIGNMENT_QUERY_STATUSES).optional().default('ALL'),
     statuses: commaSeparatedAssignmentStatusesSchema,
     search: z.string().trim().max(100).optional(),
@@ -78,7 +80,7 @@ export const listMyAssignmentsQuerySchema = z.object({
 
 export const assignmentIdParamSchema = z.object({
   params: z.object({
-    assignmentId: z.string().uuid({ message: 'assignmentId must be a valid UUID' }),
+    assignmentId: z.string().guid({ message: 'assignmentId must be a valid UUID' }),
   }),
 });
 

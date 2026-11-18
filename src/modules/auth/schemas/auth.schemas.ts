@@ -4,7 +4,7 @@ const passwordPattern =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{10,64}$/;
 
 export const passwordValidation = z
-  .string({ required_error: 'Password is required' })
+  .string({ error: (issue) => (issue.input === undefined ? 'Password is required' : undefined) })
   .min(10, 'Password must be at least 10 characters long')
   .max(64, 'Password must not exceed 64 characters')
   .regex(
@@ -13,7 +13,7 @@ export const passwordValidation = z
   );
 
 export const emailValidation = z
-  .string({ required_error: 'Email is required' })
+  .string({ error: (issue) => (issue.input === undefined ? 'Email is required' : undefined) })
   .trim()
   .toLowerCase()
   .email('Invalid email address format')
@@ -23,7 +23,9 @@ export const loginSchema = z.object({
   body: z.object({
     email: emailValidation,
     password: z
-      .string({ required_error: 'Password is required' })
+      .string({
+        error: (issue) => (issue.input === undefined ? 'Password is required' : undefined),
+      })
       .min(1, 'Password is required')
       .max(128, 'Password is too long'),
   }),
@@ -45,14 +47,18 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   body: z.object({
-    token: z.string({ required_error: 'Reset token is required' }),
+    token: z.string({
+      error: (issue) => (issue.input === undefined ? 'Reset token is required' : undefined),
+    }),
     newPassword: passwordValidation,
   }),
 });
 
 export const changePasswordSchema = z.object({
   body: z.object({
-    currentPassword: z.string({ required_error: 'Current password is required' }),
+    currentPassword: z.string({
+      error: (issue) => (issue.input === undefined ? 'Current password is required' : undefined),
+    }),
     newPassword: passwordValidation,
   }),
 });
@@ -60,7 +66,9 @@ export const changePasswordSchema = z.object({
 export const verifyResetTokenSchema = z.object({
   body: z.object({
     token: z
-      .string({ required_error: 'Reset token is required' })
+      .string({
+        error: (issue) => (issue.input === undefined ? 'Reset token is required' : undefined),
+      })
       .trim()
       .min(1, 'Reset token cannot be empty'),
   }),
@@ -70,7 +78,7 @@ export const updateProfileSchema = z.object({
   body: z
     .object({
       name: z
-        .string({ required_error: 'Name is required' })
+        .string({ error: (issue) => (issue.input === undefined ? 'Name is required' : undefined) })
         .trim()
         .min(2, 'Name must be at least 2 characters long')
         .max(100, 'Name must not exceed 100 characters'),

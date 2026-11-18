@@ -31,15 +31,15 @@ export const adminDashboardSchema = z.object({
 });
 
 export const latestSubmissionItemSchema = z.object({
-  id: z.string().uuid(),
-  assignmentId: z.string().uuid(),
+  id: z.string().guid('Invalid uuid'),
+  assignmentId: z.string().guid('Invalid uuid'),
   assignmentTitle: z.string(),
-  courseId: z.string().uuid(),
+  courseId: z.string().guid('Invalid uuid'),
   courseName: z.string(),
-  menteeId: z.string().uuid(),
+  menteeId: z.string().guid('Invalid uuid'),
   menteeName: z.string(),
   menteeEmail: z.string(),
-  batchId: z.string().uuid().nullable(),
+  batchId: z.string().guid('Invalid uuid').nullable(),
   batchName: z.string().nullable(),
   version: z.number().int().positive(),
   status: z.string(),
@@ -57,8 +57,8 @@ export const mentorDashboardSchema = z.object({
 });
 
 export const menteeRecentSubmissionItemSchema = z.object({
-  id: z.string().uuid(),
-  assignmentId: z.string().uuid(),
+  id: z.string().guid('Invalid uuid'),
+  assignmentId: z.string().guid('Invalid uuid'),
   assignmentTitle: z.string(),
   courseName: z.string(),
   status: z.string(),
@@ -69,7 +69,7 @@ export const menteeRecentSubmissionItemSchema = z.object({
 });
 
 export const menteeUpcomingDeadlineItemSchema = z.object({
-  allocationId: z.string().uuid(),
+  allocationId: z.string().guid('Invalid uuid'),
   courseName: z.string(),
   dueDate: z.string(),
   progressPercent: z.number(),

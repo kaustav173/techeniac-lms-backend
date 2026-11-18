@@ -78,6 +78,7 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
           role,
           passwordHash: 'dummy_hash',
           isActive: true,
+          mustChangePassword: false,
           tokenVersion: 1,
         }),
       );
@@ -350,7 +351,6 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
           overdueCount: number;
           totalMentees: number;
           totalSubmissions: number;
-          gradeDistribution: Record<string, { count: number; percentage: number }>;
         };
         mentees: Array<{
           menteeId: string;
@@ -358,7 +358,6 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
           averageMarks: number | null;
           completionPercentage: number;
           overdueCount: number;
-          latestGrade: string | null;
         }>;
       };
       meta: { page: number; limit: number; total: number; totalPages: number };
@@ -375,11 +374,14 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
     // Real SQL: 1 overdue allocation + 1 overdue topic progress = 2
     assert.equal(json.data.metrics.overdueCount, 2);
     assert.equal(json.data.metrics.totalMentees, 2);
-    assert.equal(json.data.metrics.gradeDistribution['A+']?.count, 1);
-    assert.equal(json.data.metrics.gradeDistribution['A+']?.percentage, 50);
-    assert.equal(json.data.metrics.gradeDistribution['C']?.count, 1);
-    assert.equal(json.data.metrics.gradeDistribution['C']?.percentage, 50);
+    assert.equal(Object.hasOwn(json.data.metrics, 'gradeDistribution'), false);
     assert.equal(json.data.mentees.length, 2);
+    const marksByMentee = new Map(json.data.mentees.map((row) => [row.menteeId, row.averageMarks]));
+    assert.equal(marksByMentee.get(mentee1.id), 90);
+    assert.equal(marksByMentee.get(mentee2.id), 60);
+    for (const row of json.data.mentees) {
+      assert.equal(Object.hasOwn(row, 'latestGrade'), false);
+    }
     assert.equal(json.meta.total, 2);
   });
 
@@ -461,7 +463,12 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
           courseAllocations: Array<{
             allocationId: string;
             progressPercent: number;
-            assignments: Array<{ marks: number | null; gradeLabel: string | null }>;
+            assignments: Array<{
+              assignmentId: string;
+              marks: number | null;
+              maxMarks: number;
+              passMarks: number;
+            }>;
           }>;
         }>;
         summary: {
@@ -479,9 +486,15 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
     assert.equal(json.data.summary.averageMarks, 90);
     assert.equal(json.data.batches.length, 1);
     assert.equal(json.data.batches[0].batchId, testBatch.id);
-    assert.equal(json.data.batches[0].courseAllocations[0].assignments.length, 1);
-    assert.equal(json.data.batches[0].courseAllocations[0].assignments[0].marks, 90);
-    assert.equal(json.data.batches[0].courseAllocations[0].assignments[0].gradeLabel, 'A+');
+    const allocation = json.data.batches[0].courseAllocations[0];
+    assert.equal(allocation.allocationId, alloc1.id);
+    assert.equal(allocation.assignments.length, 1);
+    const assignment = allocation.assignments[0];
+    assert.equal(assignment.assignmentId, testAssignment.id);
+    assert.equal(assignment.marks, 90);
+    assert.equal(assignment.maxMarks, 100);
+    assert.equal(assignment.passMarks, 50);
+    assert.equal(Object.hasOwn(assignment, 'gradeLabel'), false);
   });
 
   void it('returns CSV export with sanitized formula prefixes for = @ + - (PER-05)', () => {
@@ -500,7 +513,6 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
         onTimeSubmissions: 0,
         onTimeRate: 0,
         overdueCount: 0,
-        latestGrade: null,
       },
     ]);
 
@@ -547,20 +559,25 @@ void describe('Performance API & Aggregation Integration Tests (Module 11)', () 
     assert.equal(json.data.mentees.length, 0);
   });
 
-  void it('exercises gradeRange filter bypassing pre-pagination (fallback path)', async () => {
-    const res = await fetch(`${baseUrl}/performance?batchId=${testBatch.id}&gradeRange=A%2B`, {
+  void it('filters by mentee name while ignoring the retired gradeRange parameter', async () => {
+    const query = new URLSearchParams({
+      batchId: testBatch.id,
+      search: mentee1.name,
+      gradeRange: 'C',
+    });
+    const res = await fetch(`${baseUrl}/performance?${query}`, {
       headers: { Authorization: `Bearer ${tokenAdmin}` },
     });
     assert.equal(res.status, 200);
     const json = (await res.json()) as {
       data: {
-        mentees: Array<{ menteeId: string; latestGrade: string | null }>;
+        mentees: Array<{ menteeId: string; averageMarks: number | null }>;
       };
       meta: { total: number };
     };
     assert.equal(json.data.mentees.length, 1);
     assert.equal(json.data.mentees[0].menteeId, mentee1.id);
-    assert.equal(json.data.mentees[0].latestGrade, 'A+');
+    assert.equal(json.data.mentees[0].averageMarks, 90);
     assert.equal(json.meta.total, 1);
   });
 });

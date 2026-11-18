@@ -30,7 +30,7 @@ const commaSeparatedUuidsSchema = z
     ),
     z.array(z.string()),
   ])
-  .pipe(z.array(z.string().uuid('Invalid UUID format')))
+  .pipe(z.array(z.string().guid('Invalid UUID format')))
   .optional();
 
 const commaSeparatedStatusesSchema = z
@@ -47,11 +47,11 @@ const commaSeparatedStatusesSchema = z
   .optional();
 
 export const trackerQuerySchema = z.object({
-  batchId: z.string().uuid().optional(),
+  batchId: z.string().guid('Invalid uuid').optional(),
   batchIds: commaSeparatedUuidsSchema,
-  menteeId: z.string().uuid().optional(),
+  menteeId: z.string().guid('Invalid uuid').optional(),
   menteeIds: commaSeparatedUuidsSchema,
-  courseId: z.string().uuid().optional(),
+  courseId: z.string().guid('Invalid uuid').optional(),
   courseIds: commaSeparatedUuidsSchema,
   status: allocationStatusOrOverdueSchema.optional(),
   statuses: commaSeparatedStatusesSchema,
@@ -66,22 +66,22 @@ export const trackerQuerySchema = z.object({
 // HTTP Route Validation Schemas (used with validate() middleware)
 export const getTopicProgressRouteSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID format'),
+    id: z.string().guid('Invalid allocation ID format'),
   }),
 });
 
 export const updateTopicStatusRouteSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID format'),
-    topicId: z.string().uuid('Invalid topic ID format'),
+    id: z.string().guid('Invalid allocation ID format'),
+    topicId: z.string().guid('Invalid topic ID format'),
   }),
   body: updateTopicStatusSchema,
 });
 
 export const updateTopicDeadlineRouteSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid allocation ID format'),
-    topicId: z.string().uuid('Invalid topic ID format'),
+    id: z.string().guid('Invalid allocation ID format'),
+    topicId: z.string().guid('Invalid topic ID format'),
   }),
   body: updateTopicDeadlineSchema,
 });

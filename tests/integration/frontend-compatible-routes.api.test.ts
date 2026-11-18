@@ -167,6 +167,111 @@ void describe('Frontend-Compatible API Endpoints Integration Tests', () => {
       });
   });
 
+  void it('limits a pending password change to session recovery routes', async (t) => {
+    const admin = await userRepository.findById(adminId);
+    assert.ok(admin);
+    t.mock.method(userRepository, 'findById', () =>
+      Promise.resolve({ ...admin, mustChangePassword: true }),
+    );
+    const headers = { Authorization: `Bearer ${tokenAdmin}` };
+
+    const denied = await fetch(`${baseUrl}/admin/dashboard`, { headers });
+    assert.equal(denied.status, 403);
+    assert.deepEqual(await denied.json(), {
+      error: { code: 'PASSWORD_CHANGE_REQUIRED', message: 'Change your password to continue' },
+    });
+
+    const session = await fetch(`${baseUrl}/auth/me`, { headers });
+    assert.equal(session.status, 200);
+    const { data } = (await session.json()) as { data: { user: { mustChangePassword: boolean } } };
+    assert.equal(data.user.mustChangePassword, true);
+  });
+
+  void it('preserves required and numeric minimum messages on API validation errors', async () => {
+    const Authorization = `Bearer ${tokenAdmin}`;
+    const missing = await fetch(`${baseUrl}/users`, {
+      method: 'POST',
+      headers: { Authorization, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    assert.equal(missing.status, 400);
+    assert.deepEqual(await missing.json(), {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Validation failed',
+        details: ['name', 'email', 'role'].map((field) => ({ field, message: 'Required' })),
+      },
+    });
+
+    const invalid = await fetch(`${baseUrl}/users?page=0&sortOrder=DESC`, {
+      headers: { Authorization },
+    });
+    assert.equal(invalid.status, 400);
+    assert.deepEqual(await invalid.json(), {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Validation failed',
+        details: [
+          { field: 'page', message: 'Number must be greater than or equal to 1' },
+          { field: 'sortOrder', message: 'Invalid option: expected one of "asc"|"desc"' },
+        ],
+      },
+    });
+  });
+
+  void it('returns field-specific validation errors for performance and CSV export filters', async () => {
+    const ids = Array<string>(21).fill(adminId);
+    const listLimit = 'At most 20 batch IDs may be filtered at once';
+    const cases = [
+      {
+        query: new URLSearchParams({ batchId: 'abc' }),
+        field: 'batchId',
+        message: 'batchId must be a valid UUID',
+      },
+      {
+        query: new URLSearchParams({ batchId: `${adminId},abc` }),
+        field: 'batchId',
+        message: 'batchId must be a valid UUID',
+      },
+      {
+        query: new URLSearchParams({ batchId: ids.join(',') }),
+        field: 'batchId',
+        message: listLimit,
+      },
+      {
+        query: new URLSearchParams(ids.map((id) => ['batchId', id])),
+        field: 'batchId',
+        message: listLimit,
+      },
+      {
+        query: new URLSearchParams({ statuses: 'COMPLETED,unknown' }),
+        field: 'statuses',
+        message: 'statuses must contain valid allocation statuses',
+      },
+      {
+        query: new URLSearchParams({ startDate: 'x' }),
+        field: 'startDate',
+        message: 'Invalid datetime',
+      },
+    ];
+
+    for (const path of ['/performance', '/performance/export']) {
+      for (const { query, field, message } of cases) {
+        const result = await fetch(`${baseUrl}${path}?${query}`, {
+          headers: { Authorization: `Bearer ${tokenAdmin}` },
+        });
+        assert.equal(result.status, 400);
+        assert.deepEqual(await result.json(), {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+            details: [{ field, message }],
+          },
+        });
+      }
+    }
+  });
+
   void describe('Admin Dashboard Endpoints & Redirects', () => {
     void it('serves admin dashboard at /admin/dashboard', async () => {
       const res = await fetch(`${baseUrl}/admin/dashboard`, {
