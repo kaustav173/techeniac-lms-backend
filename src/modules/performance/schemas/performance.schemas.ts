@@ -5,66 +5,86 @@ import { CourseAllocationStatus } from '../../allocations/entities/allocation.en
 
 const createDelimitedFilterSchema = <T extends z.ZodType<string, string>>(
   itemSchema: T,
+  invalidMessage: string,
   maxItems = 20,
   maxMessage = 'At most 20 values may be filtered at once',
-) =>
-  z
-    .union([
-      itemSchema,
-      z
-        .union([
-          z.string().transform((val) =>
-            val
+) => {
+  const listSchema = z.array(itemSchema).max(maxItems, maxMessage);
+
+  return z
+    .transform((input, ctx) => {
+      if (typeof input === 'string') {
+        const single = itemSchema.safeParse(input);
+        if (single.success) return single.data;
+      }
+
+      const values =
+        typeof input === 'string'
+          ? input
               .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean),
-          ),
-          z.array(z.string()),
-        ])
-        .pipe(z.array(itemSchema).max(maxItems, maxMessage)),
-    ])
+              .map((value) => value.trim())
+              .filter(Boolean)
+          : input;
+      const list = listSchema.safeParse(values);
+      if (list.success) return list.data;
+
+      const exceedsLimit = list.error.issues.some(
+        (issue) => issue.code === 'too_big' && issue.origin === 'array',
+      );
+      ctx.issues.push({
+        code: 'custom',
+        input,
+        message: exceedsLimit ? maxMessage : invalidMessage,
+      });
+      return z.NEVER;
+    })
     .optional();
+};
+
+const performanceDateFilterSchema = z
+  .union([z.string().datetime({ offset: true }), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)], {
+    error: 'Invalid datetime',
+  })
+  .optional();
 
 export const performanceFilterSchema = z.object({
   query: z.object({
     batchId: createDelimitedFilterSchema(
-      z.string().guid('batchId must be a valid UUID'),
+      z.string().guid(),
+      'batchId must be a valid UUID',
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
     batchIds: createDelimitedFilterSchema(
-      z.string().guid('batchIds must contain valid UUIDs'),
+      z.string().guid(),
+      'batchIds must contain valid UUIDs',
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
     mentorId: z.string().guid({ message: 'mentorId must be a valid UUID' }).optional(),
     courseId: createDelimitedFilterSchema(
-      z.string().guid('courseId must be a valid UUID'),
+      z.string().guid(),
+      'courseId must be a valid UUID',
       20,
       'At most 20 course IDs may be filtered at once',
     ),
     courseIds: createDelimitedFilterSchema(
-      z.string().guid('courseIds must contain valid UUIDs'),
+      z.string().guid(),
+      'courseIds must contain valid UUIDs',
       20,
       'At most 20 course IDs may be filtered at once',
     ),
-    startDate: z
-      .string()
-      .datetime({ offset: true })
-      .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-      .optional(),
-    endDate: z
-      .string()
-      .datetime({ offset: true })
-      .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-      .optional(),
+    startDate: performanceDateFilterSchema,
+    endDate: performanceDateFilterSchema,
     status: createDelimitedFilterSchema(
       z.nativeEnum(CourseAllocationStatus),
+      'status must be a valid allocation status',
       20,
       'At most 20 statuses may be filtered at once',
     ),
     statuses: createDelimitedFilterSchema(
       z.nativeEnum(CourseAllocationStatus),
+      'statuses must contain valid allocation statuses',
       20,
       'At most 20 statuses may be filtered at once',
     ),
@@ -94,43 +114,41 @@ export const performanceFilterSchema = z.object({
 export const exportPerformanceSchema = z.object({
   query: z.object({
     batchId: createDelimitedFilterSchema(
-      z.string().guid('batchId must be a valid UUID'),
+      z.string().guid(),
+      'batchId must be a valid UUID',
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
     batchIds: createDelimitedFilterSchema(
-      z.string().guid('batchIds must contain valid UUIDs'),
+      z.string().guid(),
+      'batchIds must contain valid UUIDs',
       20,
       'At most 20 batch IDs may be filtered at once',
     ),
     mentorId: z.string().guid('Invalid uuid').optional(),
     courseId: createDelimitedFilterSchema(
-      z.string().guid('courseId must be a valid UUID'),
+      z.string().guid(),
+      'courseId must be a valid UUID',
       20,
       'At most 20 course IDs may be filtered at once',
     ),
     courseIds: createDelimitedFilterSchema(
-      z.string().guid('courseIds must contain valid UUIDs'),
+      z.string().guid(),
+      'courseIds must contain valid UUIDs',
       20,
       'At most 20 course IDs may be filtered at once',
     ),
-    startDate: z
-      .string()
-      .datetime({ offset: true })
-      .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-      .optional(),
-    endDate: z
-      .string()
-      .datetime({ offset: true })
-      .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
-      .optional(),
+    startDate: performanceDateFilterSchema,
+    endDate: performanceDateFilterSchema,
     status: createDelimitedFilterSchema(
       z.nativeEnum(CourseAllocationStatus),
+      'status must be a valid allocation status',
       20,
       'At most 20 statuses may be filtered at once',
     ),
     statuses: createDelimitedFilterSchema(
       z.nativeEnum(CourseAllocationStatus),
+      'statuses must contain valid allocation statuses',
       20,
       'At most 20 statuses may be filtered at once',
     ),

@@ -8,11 +8,25 @@ export function validate(
 ): (req: Request, _res: Response, next: NextFunction) => Promise<void> {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
-      const parsed = (await schema.parseAsync({
-        body: req.body as unknown,
-        query: req.query as unknown,
-        params: req.params as unknown,
-      })) as { body?: unknown; query?: unknown; params?: unknown };
+      const parsed = (await schema.parseAsync(
+        {
+          body: req.body as unknown,
+          query: req.query as unknown,
+          params: req.params as unknown,
+        },
+        {
+          error: (issue) => {
+            if (issue.input === undefined) {
+              return 'Required';
+            }
+            if (issue.code === 'too_small' && issue.origin === 'number') {
+              const comparison = issue.inclusive ? 'greater than or equal to' : 'greater than';
+              return `Number must be ${comparison} ${issue.minimum}`;
+            }
+            return undefined;
+          },
+        },
+      )) as { body?: unknown; query?: unknown; params?: unknown };
 
       if (parsed.body !== undefined) {
         req.body = parsed.body;

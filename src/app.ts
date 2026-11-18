@@ -9,6 +9,7 @@ import {
   corsMiddleware,
   csrfMiddleware,
   errorMiddleware,
+  noStoreMiddleware,
   notFoundMiddleware,
   requestContextMiddleware,
 } from './core/http';
@@ -42,10 +43,7 @@ export function createApp(): Express {
   app.set('trust proxy', env.TRUST_PROXY_HOPS);
 
   app.use(helmet());
-  app.use('/api/v1/auth', (_req, res, next) => {
-    res.setHeader('Cache-Control', 'no-store');
-    next();
-  });
+  app.use('/api/v1/auth', noStoreMiddleware);
   app.use(corsMiddleware);
   app.use(cookieParser());
   app.use(csrfMiddleware);
